@@ -1,0 +1,27 @@
+name: Daily Robotics Paper Email
+
+on:
+  schedule:
+    # 01:00 UTC is 09:00 in Asia/Shanghai.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  send-paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Send daily paper email
+        env:
+          QQ_SMTP_USER: ${{ secrets.QQ_SMTP_USER }}
+          QQ_SMTP_AUTH_CODE: ${{ secrets.QQ_SMTP_AUTH_CODE }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python scripts/send_daily_robotics_paper.py
