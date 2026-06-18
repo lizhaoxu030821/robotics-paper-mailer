@@ -10,9 +10,9 @@
 
 | Secret 名称 | 值 |
 | --- | --- |
-| `QQ_SMTP_USER` | `2365318481@qq.com` |
+| `QQ_SMTP_USER` | `你的 QQ 邮箱` |
 | `QQ_SMTP_AUTH_CODE` | 你的 QQ 邮箱 SMTP 授权码 |
-| `MAIL_TO` | `2365318481@qq.com` |
+| `MAIL_TO` | `你的 QQ 邮箱` |
 
 4. 进入仓库 `Actions` 页面，启用 workflows。
 5. 打开 `Daily Robotics Paper Email` workflow，点击 `Run workflow` 手动测试一次。
