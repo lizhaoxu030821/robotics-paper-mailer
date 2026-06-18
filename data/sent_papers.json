@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.14617v1",
+    "title": "Whole-Body Impedance Model Predictive Control for Safe Physical Human--Robot Interaction on Floating-Base Platforms",
+    "published": "2026-06-12T16:41:20+00:00",
+    "sent_at": "2026-06-18T04:20:47.888543+00:00",
+    "score": 103
+  },
+  {
     "url": "https://arxiv.org/abs/2606.07934v1",
     "title": "X-OP: Cross-Morphology Whole-Body Teleoperation via MPC Retargeting",
     "published": "2026-06-06T01:50:59+00:00",
