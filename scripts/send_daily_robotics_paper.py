@@ -54,6 +54,7 @@ KEYWORDS = {
     "trajectory optimization": 7,
     "sim-to-real": 7,
     "policy": 4,
+    "imitation learning": 7,
 }
 
 
