@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import email.utils
 import html
+import json
 import os
 import re
 import smtplib
@@ -22,6 +23,7 @@ ARXIV_API = "https://export.arxiv.org/api/query"
 SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
 MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
+HISTORY_PATH = Path("data") / "sent_papers.json"
 
 QUERIES = [
     "cat:cs.RO AND all:control",
@@ -82,7 +84,7 @@ def parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def arxiv_request(query: str, max_results: int = 30) -> bytes:
+def arxiv_request(query: str, max_results: int = 50) -> bytes:
     params = urllib.parse.urlencode(
         {
             "search_query": query,
@@ -162,7 +164,43 @@ def parse_feed(raw: bytes) -> list[Paper]:
     return papers
 
 
-def find_best_paper() -> Paper:
+def load_sent_urls() -> set[str]:
+    if not HISTORY_PATH.exists():
+        return set()
+    try:
+        records = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    return {record.get("url", "") for record in records if record.get("url")}
+
+
+def record_sent_paper(paper: Paper) -> None:
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    records = []
+    if HISTORY_PATH.exists():
+        try:
+            records = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            records = []
+
+    records = [record for record in records if record.get("url") != paper.url]
+    records.insert(
+        0,
+        {
+            "url": paper.url,
+            "title": paper.title,
+            "published": paper.published.isoformat(),
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "score": paper.score,
+        },
+    )
+    HISTORY_PATH.write_text(
+        json.dumps(records[:500], ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def find_best_paper(sent_urls: set[str]) -> Paper:
     papers_by_url: dict[str, Paper] = {}
     for query in QUERIES:
         raw = arxiv_request(query)
@@ -172,7 +210,16 @@ def find_best_paper() -> Paper:
                 papers_by_url[paper.url] = paper
     if not papers_by_url:
         raise RuntimeError("No arXiv papers found for the configured robotics queries.")
-    return max(papers_by_url.values(), key=lambda paper: (paper.score, paper.published))
+    ranked_papers = sorted(
+        papers_by_url.values(),
+        key=lambda paper: (paper.score, paper.published),
+        reverse=True,
+    )
+    for paper in ranked_papers:
+        if paper.url not in sent_urls:
+            return paper
+    print("All candidate papers have been sent before; reusing the best available paper.", file=sys.stderr)
+    return ranked_papers[0]
 
 
 def download_pdf(pdf_url: str) -> Path | None:
@@ -267,9 +314,11 @@ def send_email(paper: Paper, pdf_path: Path | None) -> None:
 
 
 def main() -> int:
-    paper = find_best_paper()
+    sent_urls = load_sent_urls()
+    paper = find_best_paper(sent_urls)
     pdf_path = download_pdf(paper.pdf_url)
     send_email(paper, pdf_path)
+    record_sent_paper(paper)
     print(f"EMAIL_SENT: {paper.title}")
     return 0
 
