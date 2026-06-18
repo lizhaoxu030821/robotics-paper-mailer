@@ -60,9 +60,9 @@ Settings -> Secrets and variables -> Actions -> New repository secret
 
 | Secret 名称 | 值 |
 | --- | --- |
-| `QQ_SMTP_USER` | 你的 QQ 邮箱，例如 `2365318481@qq.com` |
+| `QQ_SMTP_USER` | 你的 QQ 邮箱，例如 `23456789@qq.com` |
 | `QQ_SMTP_AUTH_CODE` | 你的 QQ 邮箱 SMTP 授权码 |
-| `MAIL_TO` | 收件邮箱，例如 `2365318481@qq.com` |
+| `MAIL_TO` | 收件邮箱，例如 `12345678@qq.com` |
 
 不要把 SMTP 授权码写进代码、README、截图或聊天记录里。
 
