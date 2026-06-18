@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.14270v1",
+    "title": "Robust Fall Recovery for Armless Bipedal-Wheeled Robots Via Force-Guided Learning",
+    "published": "2026-06-12T08:51:51+00:00",
+    "sent_at": "2026-06-18T05:10:47.010900+00:00",
+    "score": 101
+  },
+  {
     "url": "https://arxiv.org/abs/2606.04829v1",
     "title": "M3imic: Learning a Versatile Whole-Body Controller for Multimodal Motion Mimicking",
     "published": "2026-06-03T12:52:37+00:00",
