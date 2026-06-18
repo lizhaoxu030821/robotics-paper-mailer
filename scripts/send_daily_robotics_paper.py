@@ -10,6 +10,7 @@ import ssl
 import sys
 import tempfile
 import textwrap
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -98,8 +99,19 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
         f"{ARXIV_API}?{params}",
         headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
     )
-    with urllib.request.urlopen(req, timeout=60) as response:
-        return response.read()
+    last_error: Exception | None = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code != 429 or attempt == 3:
+                raise
+            wait_seconds = 20 * (attempt + 1)
+            print(f"arXiv rate limited this request; retrying in {wait_seconds}s.", file=sys.stderr)
+            time.sleep(wait_seconds)
+    raise RuntimeError(f"arXiv request failed after retries: {last_error}")
 
 
 def score_paper(title: str, abstract: str, categories: list[str], published: datetime) -> int:
@@ -208,6 +220,7 @@ def find_best_paper(sent_urls: set[str]) -> Paper:
             current = papers_by_url.get(paper.url)
             if current is None or paper.score > current.score:
                 papers_by_url[paper.url] = paper
+        time.sleep(3)
     if not papers_by_url:
         raise RuntimeError("No arXiv papers found for the configured robotics queries.")
     ranked_papers = sorted(
