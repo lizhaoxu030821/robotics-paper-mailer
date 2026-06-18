@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.07934v1",
+    "title": "X-OP: Cross-Morphology Whole-Body Teleoperation via MPC Retargeting",
+    "published": "2026-06-06T01:50:59+00:00",
+    "sent_at": "2026-06-18T04:12:27.714128+00:00",
+    "score": 105
+  },
+  {
     "url": "https://arxiv.org/abs/2606.05687v1",
     "title": "Accelerating and Scaling MPC-Guided Reinforcement Learning for Humanoid Locomotion and Manipulation",
     "published": "2026-06-04T04:12:47+00:00",
