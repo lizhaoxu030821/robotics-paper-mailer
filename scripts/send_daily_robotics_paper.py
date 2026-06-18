@@ -55,6 +55,7 @@ KEYWORDS = {
     "sim-to-real": 7,
     "policy": 4,
     "imitation learning": 7,
+    "WBC": 5,
 }
 
 
