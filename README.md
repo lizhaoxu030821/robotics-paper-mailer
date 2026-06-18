@@ -1,6 +1,6 @@
 # Cloud Robotics Paper Mailer
 
-这个项目用于在 GitHub Actions 云端每天北京时间 09:00 自动检索机器人运动控制方向论文，并通过 QQ SMTP 发到你的邮箱。电脑关机也可以运行，因为任务由 GitHub 云端执行。
+这个项目用于在 GitHub Actions 云端每天在你设置的北京时间自动检索机器人运动控制方向论文，并通过 QQ SMTP 发到你的邮箱。电脑关机也可以运行，因为任务由 GitHub 云端执行。
 
 ## 使用步骤
 
@@ -16,7 +16,7 @@
 
 4. 进入仓库 `Actions` 页面，启用 workflows。
 5. 打开 `Daily Robotics Paper Email` workflow，点击 `Run workflow` 手动测试一次。
-6. 正常后，GitHub 会每天 UTC 01:00 运行，也就是北京时间 09:00。
+6. 正常后，GitHub 会每天在设置的时间发送邮件到你的邮箱。
 
 ## 说明
 
