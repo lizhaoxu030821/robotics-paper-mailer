@@ -2,8 +2,8 @@ name: Daily Robotics Paper Email
 
 on:
   schedule:
-    # 01:00 UTC is 09:00 in Asia/Shanghai.
-    - cron: "45 1 * * *"
+    # 02:05 UTC is 10:05 in Asia/Shanghai.
+    - cron: "5 2 * * *"
   workflow_dispatch:
 
 jobs:
