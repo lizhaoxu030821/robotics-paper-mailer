@@ -13,6 +13,7 @@ import textwrap
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -102,17 +103,21 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
         headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
     )
     last_error: Exception | None = None
-    for attempt in range(4):
+    for attempt in range(5):
         try:
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with urllib.request.urlopen(req, timeout=90) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
-            if exc.code != 429 or attempt == 3:
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
                 raise
-            wait_seconds = 20 * (attempt + 1)
-            print(f"arXiv rate limited this request; retrying in {wait_seconds}s.", file=sys.stderr)
-            time.sleep(wait_seconds)
+        except (TimeoutError, OSError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt == 4:
+                raise
+        wait_seconds = 15 * (attempt + 1)
+        print(f"arXiv request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
+        time.sleep(wait_seconds)
     raise RuntimeError(f"arXiv request failed after retries: {last_error}")
 
 
@@ -216,15 +221,22 @@ def record_sent_paper(paper: Paper) -> None:
 
 def find_best_paper(sent_urls: set[str]) -> Paper:
     papers_by_url: dict[str, Paper] = {}
+    errors: list[str] = []
     for query in QUERIES:
-        raw = arxiv_request(query)
+        try:
+            raw = arxiv_request(query)
+        except Exception as exc:
+            errors.append(f"{query}: {exc}")
+            print(f"Skipping query after repeated arXiv failures: {query}: {exc}", file=sys.stderr)
+            continue
         for paper in parse_feed(raw):
             current = papers_by_url.get(paper.url)
             if current is None or paper.score > current.score:
                 papers_by_url[paper.url] = paper
         time.sleep(3)
     if not papers_by_url:
-        raise RuntimeError("No arXiv papers found for the configured robotics queries.")
+        detail = "\n".join(errors) if errors else "No query errors were captured."
+        raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
     ranked_papers = sorted(
         papers_by_url.values(),
         key=lambda paper: (paper.score, paper.published),
@@ -328,14 +340,45 @@ def send_email(paper: Paper, pdf_path: Path | None) -> None:
         smtp.send_message(msg)
 
 
+def send_failure_email(error: Exception) -> None:
+    try:
+        smtp_user = require_env("QQ_SMTP_USER")
+        smtp_code = require_env("QQ_SMTP_AUTH_CODE")
+        recipient = os.environ.get("MAIL_TO", smtp_user).strip()
+    except Exception:
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = "每日机器人论文推送失败提醒"
+    msg["From"] = smtp_user
+    msg["To"] = recipient
+    msg.set_content(
+        "今天的机器人论文自动推送没有完成。\n\n"
+        "失败位置：arXiv 论文检索或后续发送流程。\n\n"
+        f"错误信息：\n{error}\n\n"
+        "这通常是 arXiv API 临时超时、限流或 GitHub runner 网络波动造成的。"
+        "脚本已经内置重试；如果连续多天失败，需要检查 arXiv 访问、GitHub Actions 日志和 SMTP 配置。\n",
+        charset="utf-8",
+    )
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=60) as smtp:
+        smtp.login(smtp_user, smtp_code)
+        smtp.send_message(msg)
+
+
 def main() -> int:
-    sent_urls = load_sent_urls()
-    paper = find_best_paper(sent_urls)
-    pdf_path = download_pdf(paper.pdf_url)
-    send_email(paper, pdf_path)
-    record_sent_paper(paper)
-    print(f"EMAIL_SENT: {paper.title}")
-    return 0
+    try:
+        sent_urls = load_sent_urls()
+        paper = find_best_paper(sent_urls)
+        pdf_path = download_pdf(paper.pdf_url)
+        send_email(paper, pdf_path)
+        record_sent_paper(paper)
+        print(f"EMAIL_SENT: {paper.title}")
+        return 0
+    except Exception as exc:
+        send_failure_email(exc)
+        raise
 
 
 if __name__ == "__main__":
