@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import email.utils
+import hashlib
 import html
 import json
+import mimetypes
 import os
 import re
 import smtplib
@@ -22,6 +24,7 @@ from pathlib import Path
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
+ZOTERO_API = "https://api.zotero.org"
 SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
 MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
@@ -55,8 +58,6 @@ KEYWORDS = {
     "trajectory optimization": 7,
     "sim-to-real": 7,
     "policy": 4,
-    "imitation learning": 7,
-    "WBC": 5,
 }
 
 
@@ -80,8 +81,28 @@ def require_env(name: str) -> str:
     return value
 
 
+def optional_env(name: str) -> str:
+    return os.environ.get(name, "").strip()
+
+
 def normalize_space(value: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
+
+
+def split_author_name(name: str) -> dict[str, str]:
+    parts = name.strip().split()
+    if len(parts) >= 2:
+        return {"creatorType": "author", "firstName": " ".join(parts[:-1]), "lastName": parts[-1]}
+    return {"creatorType": "author", "name": name}
+
+
+def arxiv_id_from_url(url: str) -> str:
+    return url.rstrip("/").split("/")[-1]
+
+
+def safe_filename(value: str, suffix: str = ".pdf") -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._")
+    return (cleaned[:120] or "daily_robotics_paper") + suffix
 
 
 def parse_datetime(value: str) -> datetime:
@@ -267,6 +288,255 @@ def download_pdf(pdf_url: str) -> Path | None:
         return None
 
 
+def zotero_enabled() -> bool:
+    return all(
+        optional_env(name)
+        for name in ("ZOTERO_API_KEY", "ZOTERO_USER_ID", "ZOTERO_COLLECTION_NAME")
+    )
+
+
+def zotero_request(
+    method: str,
+    path: str,
+    *,
+    api_key: str,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: int = 60,
+) -> tuple[int, bytes, dict[str, str]]:
+    request_headers = {
+        "Zotero-API-Version": "3",
+        "Zotero-API-Key": api_key,
+        "User-Agent": "daily-robotics-paper-mailer/1.0",
+    }
+    if headers:
+        request_headers.update(headers)
+    req = urllib.request.Request(
+        f"{ZOTERO_API}{path}",
+        data=data,
+        headers=request_headers,
+        method=method,
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return response.status, response.read(), dict(response.headers)
+
+
+def zotero_json_request(
+    method: str,
+    path: str,
+    *,
+    api_key: str,
+    payload: object | None = None,
+    timeout: int = 60,
+) -> tuple[int, object, dict[str, str]]:
+    data = None
+    headers = {"Accept": "application/json"}
+    if payload is not None:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    status, raw, response_headers = zotero_request(
+        method,
+        path,
+        api_key=api_key,
+        data=data,
+        headers=headers,
+        timeout=timeout,
+    )
+    if not raw:
+        return status, None, response_headers
+    return status, json.loads(raw.decode("utf-8")), response_headers
+
+
+def zotero_find_collection_key(api_key: str, user_id: str, collection_name: str) -> str:
+    params = urllib.parse.urlencode({"q": collection_name, "limit": 100})
+    _, collections, _ = zotero_json_request(
+        "GET",
+        f"/users/{user_id}/collections?{params}",
+        api_key=api_key,
+    )
+    if not isinstance(collections, list):
+        raise RuntimeError("Unexpected Zotero collections response.")
+    for collection in collections:
+        data = collection.get("data", {})
+        if data.get("name") == collection_name:
+            return data["key"]
+    raise RuntimeError(f"Zotero collection not found: {collection_name}")
+
+
+def zotero_create_item(
+    api_key: str,
+    user_id: str,
+    collection_key: str,
+    paper: Paper,
+) -> str:
+    item = {
+        "itemType": "journalArticle",
+        "title": paper.title,
+        "creators": [split_author_name(author) for author in paper.authors],
+        "abstractNote": paper.abstract,
+        "date": paper.published.strftime("%Y-%m-%d"),
+        "url": paper.url,
+        "archive": "arXiv",
+        "archiveLocation": arxiv_id_from_url(paper.url),
+        "language": "en",
+        "collections": [collection_key],
+        "tags": [{"tag": category} for category in paper.categories],
+    }
+    _, response, _ = zotero_json_request(
+        "POST",
+        f"/users/{user_id}/items",
+        api_key=api_key,
+        payload=[item],
+    )
+    if not isinstance(response, dict):
+        raise RuntimeError("Unexpected Zotero create item response.")
+    successful = response.get("successful", {})
+    if not successful:
+        raise RuntimeError(f"Zotero item creation failed: {response}")
+    first = successful.get("0") or next(iter(successful.values()))
+    return first["key"]
+
+
+def zotero_create_link_attachment(
+    api_key: str,
+    user_id: str,
+    parent_key: str,
+    paper: Paper,
+) -> str | None:
+    if not paper.pdf_url:
+        return None
+    attachment = {
+        "itemType": "attachment",
+        "linkMode": "linked_url",
+        "title": "arXiv PDF",
+        "accessDate": email.utils.format_datetime(datetime.now(timezone.utc)),
+        "url": paper.pdf_url,
+        "parentItem": parent_key,
+        "contentType": "application/pdf",
+    }
+    _, response, _ = zotero_json_request(
+        "POST",
+        f"/users/{user_id}/items",
+        api_key=api_key,
+        payload=[attachment],
+    )
+    successful = response.get("successful", {}) if isinstance(response, dict) else {}
+    if not successful:
+        print(f"Zotero linked PDF attachment creation failed: {response}", file=sys.stderr)
+        return None
+    first = successful.get("0") or next(iter(successful.values()))
+    return first["key"]
+
+
+def zotero_create_imported_attachment(
+    api_key: str,
+    user_id: str,
+    parent_key: str,
+    paper: Paper,
+    pdf_path: Path,
+) -> str:
+    filename = safe_filename(arxiv_id_from_url(paper.url))
+    content_type = mimetypes.guess_type(filename)[0] or "application/pdf"
+    attachment = {
+        "itemType": "attachment",
+        "linkMode": "imported_file",
+        "title": "Full Text PDF",
+        "filename": filename,
+        "parentItem": parent_key,
+        "contentType": content_type,
+    }
+    _, response, _ = zotero_json_request(
+        "POST",
+        f"/users/{user_id}/items",
+        api_key=api_key,
+        payload=[attachment],
+    )
+    successful = response.get("successful", {}) if isinstance(response, dict) else {}
+    if not successful:
+        raise RuntimeError(f"Zotero imported attachment creation failed: {response}")
+    first = successful.get("0") or next(iter(successful.values()))
+    attachment_key = first["key"]
+    zotero_upload_attachment_file(api_key, user_id, attachment_key, pdf_path, filename, content_type)
+    return attachment_key
+
+
+def zotero_upload_attachment_file(
+    api_key: str,
+    user_id: str,
+    attachment_key: str,
+    pdf_path: Path,
+    filename: str,
+    content_type: str,
+) -> None:
+    data = pdf_path.read_bytes()
+    md5 = hashlib.md5(data).hexdigest()
+    auth_body = urllib.parse.urlencode(
+        {
+            "md5": md5,
+            "filename": filename,
+            "filesize": str(len(data)),
+            "mtime": str(int(pdf_path.stat().st_mtime * 1000)),
+        }
+    ).encode("utf-8")
+    status, raw, _ = zotero_request(
+        "POST",
+        f"/users/{user_id}/items/{attachment_key}/file",
+        api_key=api_key,
+        data=auth_body,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "If-None-Match": "*",
+        },
+    )
+    if status == 204:
+        return
+    upload_info = json.loads(raw.decode("utf-8"))
+    if not upload_info.get("exists"):
+        upload_url = upload_info["url"]
+        upload_body = upload_info["prefix"].encode("utf-8") + data + upload_info["suffix"].encode("utf-8")
+        upload_req = urllib.request.Request(
+            upload_url,
+            data=upload_body,
+            headers={"Content-Type": upload_info["contentType"]},
+            method="POST",
+        )
+        with urllib.request.urlopen(upload_req, timeout=120) as response:
+            response.read()
+    zotero_request(
+        "POST",
+        f"/users/{user_id}/items/{attachment_key}/file",
+        api_key=api_key,
+        data=urllib.parse.urlencode({"upload": upload_info["uploadKey"]}).encode("utf-8"),
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "If-None-Match": "*",
+        },
+    )
+
+
+def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
+    if not zotero_enabled():
+        print("Zotero sync skipped: missing Zotero secrets.", file=sys.stderr)
+        return
+    api_key = require_env("ZOTERO_API_KEY")
+    user_id = require_env("ZOTERO_USER_ID")
+    collection_name = require_env("ZOTERO_COLLECTION_NAME")
+    try:
+        collection_key = zotero_find_collection_key(api_key, user_id, collection_name)
+        item_key = zotero_create_item(api_key, user_id, collection_key, paper)
+        if pdf_path is not None:
+            try:
+                zotero_create_imported_attachment(api_key, user_id, item_key, paper, pdf_path)
+            except Exception as exc:
+                print(f"Zotero PDF upload failed; falling back to linked PDF: {exc}", file=sys.stderr)
+                zotero_create_link_attachment(api_key, user_id, item_key, paper)
+        else:
+            zotero_create_link_attachment(api_key, user_id, item_key, paper)
+        print(f"ZOTERO_SYNCED: {paper.title}")
+    except Exception as exc:
+        print(f"Zotero sync failed: {exc}", file=sys.stderr)
+
+
 def build_email_body(paper: Paper, attached_pdf: bool) -> str:
     author_text = ", ".join(paper.authors[:8])
     if len(paper.authors) > 8:
@@ -373,6 +643,7 @@ def main() -> int:
         paper = find_best_paper(sent_urls)
         pdf_path = download_pdf(paper.pdf_url)
         send_email(paper, pdf_path)
+        sync_to_zotero(paper, pdf_path)
         record_sent_paper(paper)
         print(f"EMAIL_SENT: {paper.title}")
         return 0

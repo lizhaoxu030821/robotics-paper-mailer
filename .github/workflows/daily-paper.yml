@@ -24,6 +24,9 @@ jobs:
           QQ_SMTP_USER: ${{ secrets.QQ_SMTP_USER }}
           QQ_SMTP_AUTH_CODE: ${{ secrets.QQ_SMTP_AUTH_CODE }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
+          ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
+          ZOTERO_COLLECTION_NAME: ${{ secrets.ZOTERO_COLLECTION_NAME }}
         run: python scripts/send_daily_robotics_paper.py
 
       - name: Commit sent paper history
