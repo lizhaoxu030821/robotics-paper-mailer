@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.18772v1",
+    "title": "HALOMI: Learning Humanoid Loco-Manipulation with Active Perception from Human Demonstrations",
+    "published": "2026-06-17T07:33:37+00:00",
+    "sent_at": "2026-06-22T05:22:46.174953+00:00",
+    "score": 82
+  },
+  {
     "url": "https://arxiv.org/abs/2606.07193v1",
     "title": "Shield-Loco: Shielding Locomotion Policies with Predictive Safety Filtering",
     "published": "2026-06-05T11:59:43+00:00",
