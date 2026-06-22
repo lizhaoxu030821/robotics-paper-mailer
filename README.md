@@ -427,6 +427,340 @@ QQ SMTP 负责发送邮件
 
 只要 cron-job.org 任务启用、GitHub Token 有效、GitHub Secrets 正确、QQ SMTP 授权码有效，就会每天按设置时间自动发送论文邮件。
 
+---
+
+# 1.1 版本：Zotero 同步增强
+
+1.1 版本在 1.0 的“每日邮件推送”基础上，新增了 Zotero 自动归档能力。现在系统不仅会把每天推荐的论文发到 QQ 邮箱，还会尝试把同一篇论文同步保存到 Zotero 的指定 Collection 中，例如：
+
+```text
+机器人运控论文
+```
+
+## 1.1 新增功能
+
+- 邮件发送成功后，自动连接 Zotero Web API。
+- 自动查找 Zotero 中名为 `机器人运控论文` 的 Collection。
+- 自动创建论文条目，保存标题、作者、摘要、发布日期、arXiv 链接、分类标签等元数据。
+- 如果 PDF 下载成功，会优先尝试把 PDF 上传为 Zotero 附件。
+- 如果 PDF 上传失败，例如 Zotero 存储空间不足、上传接口临时失败，会自动降级为 PDF 链接附件。
+- Zotero 同步失败不会阻断邮件发送，失败信息会写入 GitHub Actions 日志。
+- 原有去重逻辑仍然保留，继续通过 `data/sent_papers.json` 避免重复推送同一篇论文。
+
+## 1.1 最终链路
+
+1.0 版本链路：
+
+```text
+cron-job.org -> GitHub Actions -> arXiv -> QQ SMTP -> QQ 邮箱
+```
+
+1.1 版本链路：
+
+```text
+cron-job.org -> GitHub Actions -> arXiv -> QQ SMTP -> QQ 邮箱
+                                      -> Zotero Web API -> 机器人运控论文 Collection
+```
+
+也就是说，Zotero 是在 GitHub Actions 脚本运行过程中同步写入的，不依赖本地电脑，也不需要 Zotero 桌面端保持打开。只要 Zotero 桌面端之后正常同步，就能看到新增条目。
+
+## 1.1 需要新增的 GitHub Secrets
+
+在 GitHub 仓库中进入：
+
+```text
+Settings -> Secrets and variables -> Actions -> New repository secret
+```
+
+在原有 3 个 Secrets 基础上，新增下面 3 个：
+
+| Secret 名称 | 含义 |
+| --- | --- |
+| `ZOTERO_API_KEY` | Zotero 官网生成的 API Key |
+| `ZOTERO_USER_ID` | Zotero API 页面显示的数字 User ID |
+| `ZOTERO_COLLECTION_NAME` | 要保存到的 Zotero 文件夹名称，例如 `机器人运控论文` |
+
+完整 Secrets 列表如下：
+
+| Secret 名称 | 用途 |
+| --- | --- |
+| `QQ_SMTP_USER` | QQ 发件邮箱 |
+| `QQ_SMTP_AUTH_CODE` | QQ 邮箱 SMTP 授权码 |
+| `MAIL_TO` | 收件邮箱 |
+| `ZOTERO_API_KEY` | Zotero API 鉴权 |
+| `ZOTERO_USER_ID` | 指定 Zotero 个人库 |
+| `ZOTERO_COLLECTION_NAME` | 指定 Zotero Collection |
+
+不要把 `ZOTERO_API_KEY` 写进代码、README、截图或聊天记录里。
+
+## Zotero API Key 获取方式
+
+打开 Zotero API Keys 页面：
+
+```text
+https://www.zotero.org/settings/keys
+```
+
+点击：
+
+```text
+Create new private key
+```
+
+推荐配置：
+
+```text
+Key Name: robotics-paper-mailer
+Personal Library: Allow library access
+Allow write access: 勾选
+Allow notes access: 可不勾选
+Default Group Permissions: None
+```
+
+创建完成后复制 API Key，并添加到 GitHub Secret：
+
+```text
+ZOTERO_API_KEY
+```
+
+同一页面会显示：
+
+```text
+Your user ID for use in API calls is xxxxxxxx
+```
+
+把这个数字添加为：
+
+```text
+ZOTERO_USER_ID
+```
+
+## Zotero Collection 准备
+
+在 Zotero 桌面端或网页版中新建一个 Collection，名称例如：
+
+```text
+机器人运控论文
+```
+
+然后在 GitHub Secrets 中添加：
+
+```text
+ZOTERO_COLLECTION_NAME = 机器人运控论文
+```
+
+名称要完全一致。比如你 Zotero 里叫 `机器人运动控制论文`，Secret 里也必须写 `机器人运动控制论文`，不能少字或多空格。
+
+## workflow 需要增加的环境变量
+
+`.github/workflows/daily-paper.yml` 中，`Send daily paper email` 步骤需要把 Zotero Secrets 传给 Python 脚本：
+
+```yaml
+- name: Send daily paper email
+  env:
+    QQ_SMTP_USER: ${{ secrets.QQ_SMTP_USER }}
+    QQ_SMTP_AUTH_CODE: ${{ secrets.QQ_SMTP_AUTH_CODE }}
+    MAIL_TO: ${{ secrets.MAIL_TO }}
+    ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
+    ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
+    ZOTERO_COLLECTION_NAME: ${{ secrets.ZOTERO_COLLECTION_NAME }}
+  run: python scripts/send_daily_robotics_paper.py
+```
+
+## 1.1 代码实现思路
+
+核心修改在：
+
+```text
+scripts/send_daily_robotics_paper.py
+```
+
+新增了几类函数：
+
+```text
+zotero_enabled()
+zotero_request()
+zotero_json_request()
+zotero_find_collection_key()
+zotero_create_item()
+zotero_create_imported_attachment()
+zotero_create_link_attachment()
+zotero_upload_attachment_file()
+sync_to_zotero()
+```
+
+运行流程如下：
+
+1. 脚本先从 arXiv 检索并筛选论文。
+2. 下载论文 PDF。
+3. 发送 QQ 邮件。
+4. 调用 `sync_to_zotero(paper, pdf_path)`。
+5. 查找 `ZOTERO_COLLECTION_NAME` 对应的 Collection。
+6. 在 Zotero 中创建论文条目。
+7. 如果有 PDF，优先上传 PDF 附件。
+8. 如果 PDF 上传失败，改为创建 PDF 链接附件。
+9. 写入 `data/sent_papers.json`，避免后续重复推荐。
+
+## 如何测试 1.1 功能
+
+手动触发一次 GitHub Actions：
+
+```text
+Actions -> Daily Robotics Paper Email -> Run workflow
+```
+
+运行完成后检查：
+
+1. QQ 邮箱是否收到邮件。
+2. Zotero 的 `机器人运控论文` 文件夹是否新增论文条目。
+3. GitHub Actions 日志中是否出现：
+
+```text
+ZOTERO_SYNCED: <论文标题>
+```
+
+如果 Zotero 没有新增，展开 GitHub Actions 的 `Send daily paper email` 步骤，看是否有：
+
+```text
+Zotero sync failed: ...
+```
+
+如果出现 PDF 上传失败，但 Zotero 条目存在且有 PDF 链接附件，一般可以接受。这说明 Zotero Storage 上传失败，但链接兜底逻辑生效了。
+
+## 常见问题
+
+### 1. 邮件发送成功，但 Zotero 没有新增
+
+优先检查 GitHub Actions 日志中的：
+
+```text
+Zotero sync failed: ...
+```
+
+常见原因：
+
+- `ZOTERO_API_KEY` 没有写权限。
+- `ZOTERO_USER_ID` 填错。
+- `ZOTERO_COLLECTION_NAME` 和 Zotero 中的 Collection 名称不一致。
+- Zotero API 临时不可用。
+
+### 2. Zotero 条目有了，但没有 PDF 文件
+
+可能原因：
+
+- PDF 下载失败。
+- Zotero Storage 空间不足。
+- Zotero 文件上传接口临时失败。
+
+脚本会自动降级为 PDF 链接附件。也就是说，最差情况下 Zotero 里仍能看到论文条目和 PDF 链接。
+
+### 3. 想保存到别的 Zotero 文件夹
+
+只需要改 GitHub Secret：
+
+```text
+ZOTERO_COLLECTION_NAME
+```
+
+例如从：
+
+```text
+机器人运控论文
+```
+
+改成：
+
+```text
+腿足机器人论文
+```
+
+前提是 Zotero 里已经存在这个 Collection。
+
+### 4. 想按不同方向保存到不同文件夹
+
+可以二次开发一个主题到 Collection 的映射，例如：
+
+```python
+TOPIC_COLLECTIONS = {
+    "locomotion": "腿足机器人论文",
+    "manipulation": "机械臂论文",
+    "reinforcement learning": "强化学习控制论文",
+}
+```
+
+然后根据论文命中的关键词选择不同的 Zotero Collection。
+
+### 5. 想只保存到 Zotero，不再发邮件
+
+可以在 `main()` 中注释或删除：
+
+```python
+send_email(paper, pdf_path)
+```
+
+保留：
+
+```python
+sync_to_zotero(paper, pdf_path)
+```
+
+不过更推荐保留邮件，因为邮件相当于每日提醒；Zotero 负责长期归档。
+
+### 6. 想只创建 Zotero 条目，不上传 PDF
+
+可以把：
+
+```python
+sync_to_zotero(paper, pdf_path)
+```
+
+改成：
+
+```python
+sync_to_zotero(paper, None)
+```
+
+这样 Zotero 里会创建论文条目和 PDF 链接，不会上传 PDF 文件，能节省 Zotero Storage 空间。
+
+### 7. 想换成 Zotero Group Library
+
+当前实现写入个人库：
+
+```text
+https://api.zotero.org/users/<ZOTERO_USER_ID>/...
+```
+
+如果要写入 Group Library，需要改成：
+
+```text
+https://api.zotero.org/groups/<GROUP_ID>/...
+```
+
+同时 Zotero API Key 要有对应 Group 的 Read/Write 权限。
+
+## 1.1 版本维护建议
+
+- 定期检查 Zotero Storage 空间，避免 PDF 上传失败。
+- 不要删除 `data/sent_papers.json`，否则可能重新推送旧论文。
+- 如果 Zotero API Key 泄露，立即在 Zotero 官网删除旧 Key 并生成新 Key。
+- 如果只是改保存文件夹，优先改 `ZOTERO_COLLECTION_NAME`，不要改代码。
+- 如果要多方向多文件夹，建议引入 `config.yml`，不要继续硬编码。
+
+## 1.1 版本总结
+
+1.0 版本解决的是“每天自动发现论文并发邮件”。
+
+1.1 版本进一步解决“论文长期归档和文献管理”的问题：
+
+```text
+邮件负责提醒
+Zotero 负责沉淀
+GitHub Actions 负责执行
+cron-job.org 负责定时
+```
+
+这使项目从一个邮件脚本升级成了一个轻量级的机器人领域科研文献自动化系统。
+
 作者：李兆旭
 
 时间：2026.6.18
