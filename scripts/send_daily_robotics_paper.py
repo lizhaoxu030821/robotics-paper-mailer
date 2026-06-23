@@ -29,6 +29,8 @@ SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
 MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
 HISTORY_PATH = Path("data") / "sent_papers.json"
+DEFAULT_OBSIDIAN_OUTBOX_ROOT = Path("obsidian-outbox")
+DEFAULT_OBSIDIAN_PROJECT_ROOT = "ResearchVault/legged-robot-motion-control"
 
 QUERIES = [
     "cat:cs.RO AND all:control",
@@ -103,6 +105,16 @@ def arxiv_id_from_url(url: str) -> str:
 def safe_filename(value: str, suffix: str = ".pdf") -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._")
     return (cleaned[:120] or "daily_robotics_paper") + suffix
+
+
+def safe_markdown_stem(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-_")
+    cleaned = re.sub(r"-+", "-", cleaned)
+    return cleaned[:96] or "daily-robotics-paper"
+
+
+def yaml_string(value: object) -> str:
+    return json.dumps(str(value or ""), ensure_ascii=False)
 
 
 def parse_datetime(value: str) -> datetime:
@@ -537,6 +549,178 @@ def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
         print(f"Zotero sync failed: {exc}", file=sys.stderr)
 
 
+def obsidian_project_root() -> str:
+    return optional_env("OBSIDIAN_PROJECT_ROOT") or DEFAULT_OBSIDIAN_PROJECT_ROOT
+
+
+def obsidian_outbox_root() -> Path:
+    value = optional_env("OBSIDIAN_OUTBOX_ROOT")
+    return Path(value) if value else DEFAULT_OBSIDIAN_OUTBOX_ROOT
+
+
+def obsidian_project_relative(*segments: str) -> str:
+    return "/".join([obsidian_project_root().strip("/"), *segments])
+
+
+def build_obsidian_intake_note(paper: Paper, stamp: str) -> str:
+    authors = ", ".join(paper.authors)
+    date_text = paper.published.strftime("%Y-%m-%d")
+    request_path = obsidian_project_relative(
+        "Agent Dashboard",
+        "Outbox",
+        "Runner",
+        "Requests",
+        f"{stamp}-zotero-deep-read.md",
+    )
+    return "\n".join(
+        [
+            "---",
+            "type: zotero-daily-paper",
+            f"created: {datetime.now(timezone.utc).isoformat()}",
+            "status: outbox",
+            f"zotero_key: {yaml_string(arxiv_id_from_url(paper.url))}",
+            f"title: {yaml_string(paper.title)}",
+            f"authors: {yaml_string(authors)}",
+            f"published: {yaml_string(date_text)}",
+            'source: "arXiv via robotics-paper-mailer"',
+            f"url: {yaml_string(paper.url)}",
+            f"pdf_url: {yaml_string(paper.pdf_url)}",
+            "---",
+            "",
+            f"# {paper.title}",
+            "",
+            "## Abstract",
+            "",
+            paper.abstract or "No abstract captured from arXiv.",
+            "",
+            "## Daily Intake",
+            "",
+            f"- arXiv ID: {arxiv_id_from_url(paper.url)}",
+            f"- Authors: {authors or 'Unknown authors'}",
+            f"- Date: {date_text}",
+            f"- URL: {paper.url}",
+            f"- PDF: {paper.pdf_url or 'No PDF URL'}",
+            f"- Codex request: [[{request_path}]]",
+            f"- Score: {paper.score}",
+            f"- Categories: {', '.join(paper.categories)}",
+            "",
+            "## Next",
+            "",
+            "- [ ] Import this outbox item from Agent Dashboard Today.",
+            "- [ ] Decide whether to run the Codex deep-read request.",
+            "- [ ] Review generated notes before promoting them into the indexed knowledge base.",
+            "",
+        ]
+    )
+
+
+def build_obsidian_codex_request(paper: Paper, stamp: str) -> str:
+    authors = ", ".join(paper.authors)
+    date_text = paper.published.strftime("%Y-%m-%d")
+    intake_path = obsidian_project_relative(
+        "Agent Dashboard",
+        "Outbox",
+        "Zotero Intake",
+        f"{stamp}.md",
+    )
+    prompt = "\n".join(
+        [
+            f"继续这个库，精读这篇论文：{paper.title}",
+            "",
+            "请按当前 Vault 根目录的《论文精读工作流.md》执行。",
+            "先读根目录四个索引页，再定位 note/ 下相关笔记。",
+            "不要把外部知识当作本 Vault 证据；Zotero/arXiv 信息只能作为新文献来源。",
+            "先生成主笔记和同名细读子文件夹草稿；必要时提出索引更新建议，但不要直接改已有索引，除非用户确认。",
+            "",
+            "论文信息：",
+            f"- Title: {paper.title}",
+            f"- Authors: {authors or 'Unknown authors'}",
+            f"- Date: {date_text}",
+            f"- arXiv ID: {arxiv_id_from_url(paper.url)}",
+            f"- URL: {paper.url}",
+            f"- PDF: {paper.pdf_url or 'No PDF URL'}",
+            f"- Categories: {', '.join(paper.categories)}",
+            "",
+            "Abstract:",
+            paper.abstract or "No abstract captured from arXiv.",
+            "",
+            "期望输出：",
+            "- 主笔记：基本信息、一句话摘要、精读导航、研究对象、研究方法、研究结论、关键证据、我的判断。",
+            "- 细读页：方法拆解、实验与消融、我的解读、摘录与线索。",
+            "- 写入位置应与本库现有 note/ 分类一致；如果分类不确定，先写到 Agent Dashboard/Research Tasks 并说明建议分类。",
+        ]
+    )
+    estimated_tokens = max(1, len(prompt) // 4)
+    return "\n".join(
+        [
+            "---",
+            "type: agent-dashboard-runner-request",
+            f"created: {datetime.now(timezone.utc).isoformat()}",
+            "status: outbox",
+            "model: codex",
+            f"estimated_tokens: {estimated_tokens}",
+            "write_policy: confirm-before-existing-files",
+            f"zotero_key: {yaml_string(arxiv_id_from_url(paper.url))}",
+            f"paper_title: {yaml_string(paper.title)}",
+            f"intake_note: {yaml_string(intake_path)}",
+            "---",
+            "",
+            f"# Codex deep read request {stamp}",
+            "",
+            "## Prompt",
+            "",
+            "```text",
+            prompt,
+            "```",
+            "",
+            "## Runner checklist",
+            "",
+            "- [ ] Codex has generated the daily deep-read template.",
+            "- [ ] User reviewed proposed notes before index promotion.",
+            "- [ ] If accepted, paper is discoverable through the project literature index.",
+            "",
+        ]
+    )
+
+
+def write_text_if_missing(path: Path, content: str) -> bool:
+    if path.exists():
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def write_obsidian_outbox(paper: Paper) -> None:
+    root = obsidian_outbox_root()
+    date_key = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    stamp = f"{date_key}-{arxiv_id_from_url(paper.url)}-{safe_markdown_stem(paper.title)}"
+    project_root = obsidian_project_root().strip("/")
+    intake_path = (
+        root
+        / project_root
+        / "Agent Dashboard"
+        / "Outbox"
+        / "Zotero Intake"
+        / f"{stamp}.md"
+    )
+    request_path = (
+        root
+        / project_root
+        / "Agent Dashboard"
+        / "Outbox"
+        / "Runner"
+        / "Requests"
+        / f"{stamp}-zotero-deep-read.md"
+    )
+    wrote_intake = write_text_if_missing(intake_path, build_obsidian_intake_note(paper, stamp))
+    wrote_request = write_text_if_missing(request_path, build_obsidian_codex_request(paper, stamp))
+    if wrote_intake or wrote_request:
+        print(f"OBSIDIAN_OUTBOX_CREATED: {paper.title}")
+    else:
+        print(f"OBSIDIAN_OUTBOX_EXISTS: {paper.title}")
+
+
 def build_email_body(paper: Paper, attached_pdf: bool) -> str:
     author_text = ", ".join(paper.authors[:8])
     if len(paper.authors) > 8:
@@ -644,6 +828,7 @@ def main() -> int:
         pdf_path = download_pdf(paper.pdf_url)
         send_email(paper, pdf_path)
         sync_to_zotero(paper, pdf_path)
+        write_obsidian_outbox(paper)
         record_sent_paper(paper)
         print(f"EMAIL_SENT: {paper.title}")
         return 0
