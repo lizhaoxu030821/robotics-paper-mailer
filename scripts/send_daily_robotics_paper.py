@@ -110,7 +110,7 @@ def safe_filename(value: str, suffix: str = ".pdf") -> str:
 def safe_markdown_stem(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-_")
     cleaned = re.sub(r"-+", "-", cleaned)
-    return cleaned[:96] or "daily-robotics-paper"
+    return cleaned[:36] or "daily-robotics-paper"
 
 
 def yaml_string(value: object) -> str:
