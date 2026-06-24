@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.24466v1",
+    "title": "FT-WBC: Learning Fault-Tolerant Whole-Body Control for Legged Loco-Manipulation",
+    "published": "2026-06-23T11:58:45+00:00",
+    "sent_at": "2026-06-24T02:11:56.802622+00:00",
+    "score": 100
+  },
+  {
     "url": "https://arxiv.org/abs/2606.23680v1",
     "title": "CoorDex: Coordinating Body and Hand Priors for Continuous Dexterous Humanoid Loco-Manipulation",
     "published": "2026-06-22T17:59:20+00:00",
