@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Callable, TypeVar
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
@@ -62,6 +63,8 @@ KEYWORDS = {
     "policy": 4,
 }
 
+T = TypeVar("T")
+
 
 @dataclass(frozen=True)
 class Paper:
@@ -74,6 +77,16 @@ class Paper:
     pdf_url: str
     categories: list[str]
     score: int
+
+
+def timed_step(label: str, func: Callable[[], T]) -> T:
+    start = time.monotonic()
+    print(f"[timer] {label} started", flush=True)
+    try:
+        return func()
+    finally:
+        elapsed = time.monotonic() - start
+        print(f"[timer] {label} finished in {elapsed:.1f}s", flush=True)
 
 
 def require_env(name: str) -> str:
@@ -823,13 +836,13 @@ def send_failure_email(error: Exception) -> None:
 
 def main() -> int:
     try:
-        sent_urls = load_sent_urls()
-        paper = find_best_paper(sent_urls)
-        pdf_path = download_pdf(paper.pdf_url)
-        send_email(paper, pdf_path)
-        sync_to_zotero(paper, pdf_path)
-        write_obsidian_outbox(paper)
-        record_sent_paper(paper)
+        sent_urls = timed_step("load sent history", load_sent_urls)
+        paper = timed_step("find best arXiv paper", lambda: find_best_paper(sent_urls))
+        pdf_path = timed_step("download PDF", lambda: download_pdf(paper.pdf_url))
+        timed_step("send email", lambda: send_email(paper, pdf_path))
+        timed_step("sync to Zotero", lambda: sync_to_zotero(paper, pdf_path))
+        timed_step("write Obsidian outbox", lambda: write_obsidian_outbox(paper))
+        timed_step("record sent paper", lambda: record_sent_paper(paper))
         print(f"EMAIL_SENT: {paper.title}")
         return 0
     except Exception as exc:
