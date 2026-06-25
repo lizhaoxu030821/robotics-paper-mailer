@@ -149,19 +149,19 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
         headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
     )
     last_error: Exception | None = None
-    for attempt in range(5):
+    for attempt in range(2):
         try:
-            with urllib.request.urlopen(req, timeout=90) as response:
+            with urllib.request.urlopen(req, timeout=25) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
-            if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == 1:
                 raise
         except (TimeoutError, OSError, urllib.error.URLError) as exc:
             last_error = exc
-            if attempt == 4:
+            if attempt == 1:
                 raise
-        wait_seconds = 15 * (attempt + 1)
+        wait_seconds = 5 * (attempt + 1)
         print(f"arXiv request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
         time.sleep(wait_seconds)
     raise RuntimeError(f"arXiv request failed after retries: {last_error}")
@@ -279,7 +279,7 @@ def find_best_paper(sent_urls: set[str]) -> Paper:
             current = papers_by_url.get(paper.url)
             if current is None or paper.score > current.score:
                 papers_by_url[paper.url] = paper
-        time.sleep(3)
+        time.sleep(1)
     if not papers_by_url:
         detail = "\n".join(errors) if errors else "No query errors were captured."
         raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
@@ -302,7 +302,7 @@ def download_pdf(pdf_url: str) -> Path | None:
     target = Path(tempfile.gettempdir()) / safe_name
     req = urllib.request.Request(pdf_url, headers={"User-Agent": "daily-robotics-paper-mailer/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=90) as response:
+        with urllib.request.urlopen(req, timeout=25) as response:
             target.write_bytes(response.read())
         size = target.stat().st_size
         if 10_000 < size <= MAX_ATTACHMENT_BYTES:
@@ -525,7 +525,7 @@ def zotero_upload_attachment_file(
             headers={"Content-Type": upload_info["contentType"]},
             method="POST",
         )
-        with urllib.request.urlopen(upload_req, timeout=120) as response:
+        with urllib.request.urlopen(upload_req, timeout=45) as response:
             response.read()
     zotero_request(
         "POST",
@@ -802,7 +802,7 @@ def send_email(paper: Paper, pdf_path: Path | None) -> None:
         )
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=60) as smtp:
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
         smtp.login(smtp_user, smtp_code)
         smtp.send_message(msg)
 
@@ -829,7 +829,7 @@ def send_failure_email(error: Exception) -> None:
     )
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=60) as smtp:
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
         smtp.login(smtp_user, smtp_code)
         smtp.send_message(msg)
 

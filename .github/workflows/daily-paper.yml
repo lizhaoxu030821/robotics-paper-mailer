@@ -9,7 +9,7 @@ permissions:
 jobs:
   send-paper:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 6
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
