@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.26313v1",
+    "title": "Racing a Wheeled Quadruped: Active Load Transfer Mitigation via Model Predictive Control",
+    "published": "2026-06-24T18:54:17+00:00",
+    "sent_at": "2026-06-27T02:01:03.897180+00:00",
+    "score": 104
+  },
+  {
     "url": "https://arxiv.org/abs/2606.26392v1",
     "title": "MPC-Injection: Biasing Off-Policy Locomotion RL Toward Controller-Induced Behavior Basins",
     "published": "2026-06-24T21:23:22+00:00",
