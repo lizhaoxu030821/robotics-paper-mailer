@@ -21,19 +21,28 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
+
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - handled at runtime with a clearer error.
+    yaml = None
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 ZOTERO_API = "https://api.zotero.org"
 SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
-MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
+CONFIG_PATH = Path(os.environ.get("PAPER_MAILER_CONFIG", "config.yml"))
 HISTORY_PATH = Path("data") / "sent_papers.json"
 DEFAULT_OBSIDIAN_OUTBOX_ROOT = Path("obsidian-outbox")
 DEFAULT_OBSIDIAN_PROJECT_ROOT = "ResearchVault/legged-robot-motion-control"
+DEFAULT_MAX_ATTACHMENT_MB = 18
+DEFAULT_HISTORY_LIMIT = 500
+DEFAULT_FRESHNESS_BONUS_DAYS = 30
+DEFAULT_MIN_SCORE = 0
 
-QUERIES = [
+DEFAULT_QUERIES = [
     "cat:cs.RO AND all:control",
     "cat:cs.RO AND all:locomotion",
     "cat:cs.RO AND all:humanoid",
@@ -42,7 +51,7 @@ QUERIES = [
     "cat:eess.SY AND all:robot",
 ]
 
-KEYWORDS = {
+DEFAULT_KEYWORDS = {
     "whole-body": 12,
     "whole body": 12,
     "mpc": 11,
@@ -63,7 +72,25 @@ KEYWORDS = {
     "policy": 4,
 }
 
+DEFAULT_CATEGORY_WEIGHTS = {
+    "cs.RO": 10,
+    "eess.SY": 5,
+}
+
 T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class Preferences:
+    queries: list[str]
+    keyword_weights: dict[str, int]
+    category_weights: dict[str, int]
+    freshness_bonus_days: int
+    max_attachment_bytes: int
+    history_limit: int
+    min_score: int
+    obsidian_outbox_root: Path
+    obsidian_project_root: str
 
 
 @dataclass(frozen=True)
@@ -77,6 +104,157 @@ class Paper:
     pdf_url: str
     categories: list[str]
     score: int
+
+
+def default_config() -> dict[str, Any]:
+    return {
+        "paper_preferences": {
+            "max_attachment_mb": DEFAULT_MAX_ATTACHMENT_MB,
+            "history_limit": DEFAULT_HISTORY_LIMIT,
+            "freshness_bonus_days": DEFAULT_FRESHNESS_BONUS_DAYS,
+            "min_score": DEFAULT_MIN_SCORE,
+            "queries": [
+                {"query": query, "enabled": True}
+                for query in DEFAULT_QUERIES
+            ],
+            "keywords": [
+                {"keyword": keyword, "weight": weight, "enabled": True}
+                for keyword, weight in DEFAULT_KEYWORDS.items()
+            ],
+            "category_weights": [
+                {"category": category, "weight": weight, "enabled": True}
+                for category, weight in DEFAULT_CATEGORY_WEIGHTS.items()
+            ],
+        },
+        "obsidian": {
+            "outbox_root": str(DEFAULT_OBSIDIAN_OUTBOX_ROOT),
+            "project_root": DEFAULT_OBSIDIAN_PROJECT_ROOT,
+        },
+    }
+
+
+def _as_mapping(value: object) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_int(value: object, fallback: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _as_float(value: object, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def load_raw_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
+    if not path.exists():
+        return default_config()
+    if yaml is None:
+        raise RuntimeError("PyYAML is required to read config.yml. Run: pip install -r requirements.txt")
+    with path.open("r", encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"Invalid config file: {path}")
+    return raw
+
+
+def _load_queries(preferences: dict[str, Any]) -> list[str]:
+    queries: list[str] = []
+    raw_queries = preferences.get("queries", [])
+    if isinstance(raw_queries, list):
+        for item in raw_queries:
+            if isinstance(item, str):
+                queries.append(item)
+            elif isinstance(item, dict) and item.get("enabled", True):
+                query = str(item.get("query", "")).strip()
+                if query:
+                    queries.append(query)
+    return queries or list(DEFAULT_QUERIES)
+
+
+def _load_keyword_weights(preferences: dict[str, Any]) -> dict[str, int]:
+    weights: dict[str, int] = {}
+    raw_keywords = preferences.get("keywords", {})
+    if isinstance(raw_keywords, dict):
+        for keyword, weight in raw_keywords.items():
+            keyword_text = str(keyword).strip().lower()
+            if keyword_text:
+                weights[keyword_text] = _as_int(weight, 0)
+    elif isinstance(raw_keywords, list):
+        for item in raw_keywords:
+            if not isinstance(item, dict) or not item.get("enabled", True):
+                continue
+            keyword = str(item.get("keyword", "")).strip().lower()
+            if keyword:
+                weights[keyword] = _as_int(item.get("weight"), 0)
+    return weights or dict(DEFAULT_KEYWORDS)
+
+
+def _load_category_weights(preferences: dict[str, Any]) -> dict[str, int]:
+    weights: dict[str, int] = {}
+    raw_categories = preferences.get("category_weights", {})
+    if isinstance(raw_categories, dict):
+        for category, weight in raw_categories.items():
+            category_text = str(category).strip()
+            if category_text:
+                weights[category_text] = _as_int(weight, 0)
+    elif isinstance(raw_categories, list):
+        for item in raw_categories:
+            if not isinstance(item, dict) or not item.get("enabled", True):
+                continue
+            category = str(item.get("category", "")).strip()
+            if category:
+                weights[category] = _as_int(item.get("weight"), 0)
+    return weights or dict(DEFAULT_CATEGORY_WEIGHTS)
+
+
+def preferences_from_raw_config(raw: dict[str, Any]) -> Preferences:
+    preferences = _as_mapping(raw.get("paper_preferences"))
+    obsidian = _as_mapping(raw.get("obsidian"))
+    max_attachment_mb = max(0.1, _as_float(preferences.get("max_attachment_mb"), DEFAULT_MAX_ATTACHMENT_MB))
+    return Preferences(
+        queries=_load_queries(preferences),
+        keyword_weights=_load_keyword_weights(preferences),
+        category_weights=_load_category_weights(preferences),
+        freshness_bonus_days=max(0, _as_int(preferences.get("freshness_bonus_days"), DEFAULT_FRESHNESS_BONUS_DAYS)),
+        max_attachment_bytes=int(max_attachment_mb * 1024 * 1024),
+        history_limit=max(1, _as_int(preferences.get("history_limit"), DEFAULT_HISTORY_LIMIT)),
+        min_score=max(0, _as_int(preferences.get("min_score"), DEFAULT_MIN_SCORE)),
+        obsidian_outbox_root=Path(str(obsidian.get("outbox_root") or DEFAULT_OBSIDIAN_OUTBOX_ROOT)),
+        obsidian_project_root=str(obsidian.get("project_root") or DEFAULT_OBSIDIAN_PROJECT_ROOT),
+    )
+
+
+def load_preferences(path: Path = CONFIG_PATH) -> Preferences:
+    return preferences_from_raw_config(load_raw_config(path))
+
+
+def apply_preferences(preferences: Preferences) -> None:
+    global PREFERENCES, QUERIES, KEYWORDS, CATEGORY_WEIGHTS
+    global FRESHNESS_BONUS_DAYS, MAX_ATTACHMENT_BYTES, HISTORY_LIMIT, MIN_SCORE
+    PREFERENCES = preferences
+    QUERIES = preferences.queries
+    KEYWORDS = preferences.keyword_weights
+    CATEGORY_WEIGHTS = preferences.category_weights
+    FRESHNESS_BONUS_DAYS = preferences.freshness_bonus_days
+    MAX_ATTACHMENT_BYTES = preferences.max_attachment_bytes
+    HISTORY_LIMIT = preferences.history_limit
+    MIN_SCORE = preferences.min_score
+
+
+PREFERENCES = load_preferences()
+QUERIES = PREFERENCES.queries
+KEYWORDS = PREFERENCES.keyword_weights
+CATEGORY_WEIGHTS = PREFERENCES.category_weights
+FRESHNESS_BONUS_DAYS = PREFERENCES.freshness_bonus_days
+MAX_ATTACHMENT_BYTES = PREFERENCES.max_attachment_bytes
+HISTORY_LIMIT = PREFERENCES.history_limit
+MIN_SCORE = PREFERENCES.min_score
 
 
 def timed_step(label: str, func: Callable[[], T]) -> T:
@@ -173,12 +351,11 @@ def score_paper(title: str, abstract: str, categories: list[str], published: dat
     for keyword, weight in KEYWORDS.items():
         if keyword in text:
             score += weight
-    if "cs.RO" in categories:
-        score += 10
-    if "eess.SY" in categories:
-        score += 5
+    for category in categories:
+        score += CATEGORY_WEIGHTS.get(category, 0)
     days_old = max(0, (datetime.now(timezone.utc) - published).days)
-    score += max(0, 30 - min(days_old, 30))
+    if FRESHNESS_BONUS_DAYS:
+        score += max(0, FRESHNESS_BONUS_DAYS - min(days_old, FRESHNESS_BONUS_DAYS))
     return score
 
 
@@ -260,17 +437,17 @@ def record_sent_paper(paper: Paper) -> None:
         },
     )
     HISTORY_PATH.write_text(
-        json.dumps(records[:500], ensure_ascii=False, indent=2) + "\n",
+        json.dumps(records[:HISTORY_LIMIT], ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
 
-def find_best_paper(sent_urls: set[str]) -> Paper:
+def collect_ranked_papers(*, max_results: int = 50) -> list[Paper]:
     papers_by_url: dict[str, Paper] = {}
     errors: list[str] = []
     for query in QUERIES:
         try:
-            raw = arxiv_request(query)
+            raw = arxiv_request(query, max_results=max_results)
         except Exception as exc:
             errors.append(f"{query}: {exc}")
             print(f"Skipping query after repeated arXiv failures: {query}: {exc}", file=sys.stderr)
@@ -283,11 +460,22 @@ def find_best_paper(sent_urls: set[str]) -> Paper:
     if not papers_by_url:
         detail = "\n".join(errors) if errors else "No query errors were captured."
         raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
-    ranked_papers = sorted(
-        papers_by_url.values(),
-        key=lambda paper: (paper.score, paper.published),
-        reverse=True,
-    )
+    ranked_papers = [
+        paper
+        for paper in sorted(
+            papers_by_url.values(),
+            key=lambda paper: (paper.score, paper.published),
+            reverse=True,
+        )
+        if paper.score >= MIN_SCORE
+    ]
+    if not ranked_papers:
+        raise RuntimeError(f"No papers met the configured minimum score: {MIN_SCORE}")
+    return ranked_papers
+
+
+def find_best_paper(sent_urls: set[str]) -> Paper:
+    ranked_papers = collect_ranked_papers()
     for paper in ranked_papers:
         if paper.url not in sent_urls:
             return paper
@@ -563,12 +751,12 @@ def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
 
 
 def obsidian_project_root() -> str:
-    return optional_env("OBSIDIAN_PROJECT_ROOT") or DEFAULT_OBSIDIAN_PROJECT_ROOT
+    return optional_env("OBSIDIAN_PROJECT_ROOT") or PREFERENCES.obsidian_project_root
 
 
 def obsidian_outbox_root() -> Path:
     value = optional_env("OBSIDIAN_OUTBOX_ROOT")
-    return Path(value) if value else DEFAULT_OBSIDIAN_OUTBOX_ROOT
+    return Path(value) if value else PREFERENCES.obsidian_outbox_root
 
 
 def obsidian_project_relative(*segments: str) -> str:
