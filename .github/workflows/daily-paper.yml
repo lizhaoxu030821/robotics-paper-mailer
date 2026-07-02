@@ -1,8 +1,6 @@
 name: Daily Robotics Paper Email
 
 on:
-  schedule:
-    - cron: "0 23 * * *"
   workflow_dispatch:
 
 permissions:
