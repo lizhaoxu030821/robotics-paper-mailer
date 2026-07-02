@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.30645v1",
+    "title": "VLK: Learning Humanoid Loco-Manipulation from Synthetic Interactions in Reconstructed Scenes",
+    "published": "2026-06-29T17:59:55+00:00",
+    "sent_at": "2026-07-02T02:01:24.874221+00:00",
+    "score": 95
+  },
+  {
     "url": "https://arxiv.org/abs/2606.30290v1",
     "title": "X-Morph: Human Motion Priors for Scalable Robot Learning Across Morphologies",
     "published": "2026-06-29T13:31:27+00:00",
