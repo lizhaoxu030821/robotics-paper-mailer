@@ -322,27 +322,32 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
             "sortOrder": "descending",
         }
     )
-    req = urllib.request.Request(
-        f"{ARXIV_API}?{params}",
-        headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
-    )
+    endpoints = list(dict.fromkeys([ARXIV_API, "http://export.arxiv.org/api/query"]))
     last_error: Exception | None = None
-    for attempt in range(2):
+    for attempt, endpoint in enumerate(endpoints):
+        req = urllib.request.Request(
+            f"{endpoint}?{params}",
+            headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
+        )
         try:
             with urllib.request.urlopen(req, timeout=25) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
-            if exc.code not in {429, 500, 502, 503, 504} or attempt == 1:
-                raise
+            if exc.code not in {429, 500, 502, 503, 504}:
+                raise RuntimeError(f"arXiv request failed for {query}: HTTP {exc.code} at {endpoint}") from exc
         except (TimeoutError, OSError, urllib.error.URLError) as exc:
             last_error = exc
-            if attempt == 1:
-                raise
-        wait_seconds = 5 * (attempt + 1)
-        print(f"arXiv request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
-        time.sleep(wait_seconds)
-    raise RuntimeError(f"arXiv request failed after retries: {last_error}")
+        if attempt < len(endpoints) - 1:
+            wait_seconds = 5 * (attempt + 1)
+            print(
+                f"arXiv request failed temporarily for {query} at {endpoint} ({last_error}); "
+                f"trying fallback in {wait_seconds}s.",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(wait_seconds)
+    raise RuntimeError(f"arXiv request failed for {query} after fallback endpoints: {last_error}")
 
 
 def score_paper(title: str, abstract: str, categories: list[str], published: datetime) -> int:
@@ -990,9 +995,25 @@ def send_email(paper: Paper, pdf_path: Path | None) -> None:
         )
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
-        smtp.login(smtp_user, smtp_code)
-        smtp.send_message(msg)
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
+                smtp.login(smtp_user, smtp_code)
+                smtp.send_message(msg)
+            return
+        except (OSError, smtplib.SMTPException) as exc:
+            last_error = exc
+            if attempt == 2:
+                break
+            wait_seconds = 8 * (attempt + 1)
+            print(
+                f"SMTP send failed temporarily ({exc}); retrying in {wait_seconds}s.",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(wait_seconds)
+    raise RuntimeError(f"SMTP send failed after retries: {last_error}") from last_error
 
 
 def send_failure_email(error: Exception) -> None:
@@ -1017,9 +1038,16 @@ def send_failure_email(error: Exception) -> None:
     )
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
-        smtp.login(smtp_user, smtp_code)
-        smtp.send_message(msg)
+    try:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
+            smtp.login(smtp_user, smtp_code)
+            smtp.send_message(msg)
+    except Exception as failure_notice_error:
+        print(
+            f"Failure notification email could not be sent: {failure_notice_error}",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def main() -> int:
@@ -1034,6 +1062,7 @@ def main() -> int:
         print(f"EMAIL_SENT: {paper.title}")
         return 0
     except Exception as exc:
+        print(f"DAILY_PAPER_MAILER_FAILED: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         send_failure_email(exc)
         raise
 
