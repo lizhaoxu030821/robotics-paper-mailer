@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.29209v1",
+    "title": "AnyBody: Free-Form Whole-Body Humanoid Control from Arbitrary Keypoint Guidance",
+    "published": "2026-06-28T05:20:37+00:00",
+    "sent_at": "2026-07-03T15:17:03.164827+00:00",
+    "score": 90
+  },
+  {
     "url": "https://arxiv.org/abs/2607.01574v1",
     "title": "Multi-Rate Nonlinear Model Predictive Control for Wall-Supported Bipedal Locomotion of Quadrupedal Robots",
     "published": "2026-07-02T01:09:09+00:00",
