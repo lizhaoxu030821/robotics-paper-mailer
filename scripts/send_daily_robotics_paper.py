@@ -21,24 +21,19 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Callable, TypeVar
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 ZOTERO_API = "https://api.zotero.org"
 SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
-CONFIG_PATH = Path(os.environ.get("PAPER_MAILER_CONFIG", "paper_preferences.json"))
-DEFAULT_MAX_ATTACHMENT_MB = 18
-DEFAULT_HISTORY_LIMIT = 500
-DEFAULT_FRESHNESS_BONUS_DAYS = 30
-DEFAULT_MIN_SCORE = 0
-MAX_CONFIGURED_QUERIES = 8
+MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
 HISTORY_PATH = Path("data") / "sent_papers.json"
 DEFAULT_OBSIDIAN_OUTBOX_ROOT = Path("obsidian-outbox")
 DEFAULT_OBSIDIAN_PROJECT_ROOT = "ResearchVault/legged-robot-motion-control"
 
-DEFAULT_QUERIES = [
+QUERIES = [
     "cat:cs.RO AND all:control",
     "cat:cs.RO AND all:locomotion",
     "cat:cs.RO AND all:humanoid",
@@ -47,7 +42,7 @@ DEFAULT_QUERIES = [
     "cat:eess.SY AND all:robot",
 ]
 
-DEFAULT_KEYWORDS = {
+KEYWORDS = {
     "whole-body": 12,
     "whole body": 12,
     "mpc": 11,
@@ -68,46 +63,7 @@ DEFAULT_KEYWORDS = {
     "policy": 4,
 }
 
-DEFAULT_CATEGORY_WEIGHTS = {
-    "cs.RO": 10,
-    "eess.SY": 5,
-}
-
-QUERIES = list(DEFAULT_QUERIES)
-KEYWORDS = dict(DEFAULT_KEYWORDS)
-CATEGORY_WEIGHTS = dict(DEFAULT_CATEGORY_WEIGHTS)
-FRESHNESS_BONUS_DAYS = DEFAULT_FRESHNESS_BONUS_DAYS
-MAX_ATTACHMENT_BYTES = DEFAULT_MAX_ATTACHMENT_MB * 1024 * 1024
-HISTORY_LIMIT = DEFAULT_HISTORY_LIMIT
-MIN_SCORE = DEFAULT_MIN_SCORE
-
 T = TypeVar("T")
-
-
-@dataclass(frozen=True)
-class Preferences:
-    queries: list[str]
-    keyword_weights: dict[str, int]
-    category_weights: dict[str, int]
-    freshness_bonus_days: int
-    max_attachment_bytes: int
-    history_limit: int
-    min_score: int
-    obsidian_outbox_root: Path
-    obsidian_project_root: str
-    loaded_from_config: bool
-
-
-class ArxivSearchUnavailableError(RuntimeError):
-    pass
-
-
-class NoPaperCandidatesError(RuntimeError):
-    pass
-
-
-class NoScoredPapersError(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True)
@@ -121,179 +77,6 @@ class Paper:
     pdf_url: str
     categories: list[str]
     score: int
-
-
-def _as_mapping(value: object) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
-
-
-def _as_int(value: object, fallback: int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return fallback
-
-
-def _as_float(value: object, fallback: float) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return fallback
-
-
-def _load_rows(
-    rows: object,
-    *,
-    value_key: str,
-    weight_key: str | None = None,
-) -> list[tuple[str, int | None]]:
-    parsed_rows: list[tuple[str, int | None]] = []
-    if not isinstance(rows, list):
-        return parsed_rows
-    for row in rows:
-        if isinstance(row, str):
-            value = row.strip()
-            if value:
-                parsed_rows.append((value, None))
-            continue
-        if not isinstance(row, dict) or not row.get("enabled", True):
-            continue
-        value = str(row.get(value_key, "")).strip()
-        if not value:
-            continue
-        weight = _as_int(row.get(weight_key), 0) if weight_key else None
-        parsed_rows.append((value, weight))
-    return parsed_rows
-
-
-def _load_queries(raw: dict[str, Any]) -> list[str]:
-    rows = _load_rows(raw.get("queries"), value_key="query")
-    queries = [value for value, _ in rows]
-    if not queries:
-        return list(DEFAULT_QUERIES)
-    return queries[:MAX_CONFIGURED_QUERIES]
-
-
-def _load_weights(
-    raw: dict[str, Any],
-    section: str,
-    value_key: str,
-    defaults: dict[str, int],
-    *,
-    lowercase: bool = False,
-) -> dict[str, int]:
-    rows = _load_rows(raw.get(section), value_key=value_key, weight_key="weight")
-    weights: dict[str, int] = {}
-    for value, weight in rows:
-        key = value.lower() if lowercase else value
-        weights[key] = int(weight or 0)
-    return weights or dict(defaults)
-
-
-def default_preferences(*, loaded_from_config: bool = False) -> Preferences:
-    return Preferences(
-        queries=list(DEFAULT_QUERIES),
-        keyword_weights=dict(DEFAULT_KEYWORDS),
-        category_weights=dict(DEFAULT_CATEGORY_WEIGHTS),
-        freshness_bonus_days=DEFAULT_FRESHNESS_BONUS_DAYS,
-        max_attachment_bytes=DEFAULT_MAX_ATTACHMENT_MB * 1024 * 1024,
-        history_limit=DEFAULT_HISTORY_LIMIT,
-        min_score=DEFAULT_MIN_SCORE,
-        obsidian_outbox_root=DEFAULT_OBSIDIAN_OUTBOX_ROOT,
-        obsidian_project_root=DEFAULT_OBSIDIAN_PROJECT_ROOT,
-        loaded_from_config=loaded_from_config,
-    )
-
-
-def preferences_from_config(raw: dict[str, Any]) -> Preferences:
-    paper_preferences = _as_mapping(raw.get("paper_preferences"))
-    obsidian = _as_mapping(raw.get("obsidian"))
-    max_attachment_mb = max(
-        0.1,
-        _as_float(paper_preferences.get("max_attachment_mb"), DEFAULT_MAX_ATTACHMENT_MB),
-    )
-    return Preferences(
-        queries=_load_queries(paper_preferences),
-        keyword_weights=_load_weights(
-            paper_preferences,
-            "keywords",
-            "keyword",
-            DEFAULT_KEYWORDS,
-            lowercase=True,
-        ),
-        category_weights=_load_weights(
-            paper_preferences,
-            "category_weights",
-            "category",
-            DEFAULT_CATEGORY_WEIGHTS,
-        ),
-        freshness_bonus_days=max(
-            0,
-            _as_int(
-                paper_preferences.get("freshness_bonus_days"),
-                DEFAULT_FRESHNESS_BONUS_DAYS,
-            ),
-        ),
-        max_attachment_bytes=int(max_attachment_mb * 1024 * 1024),
-        history_limit=max(
-            1,
-            _as_int(paper_preferences.get("history_limit"), DEFAULT_HISTORY_LIMIT),
-        ),
-        min_score=max(0, _as_int(paper_preferences.get("min_score"), DEFAULT_MIN_SCORE)),
-        obsidian_outbox_root=Path(
-            str(obsidian.get("outbox_root") or DEFAULT_OBSIDIAN_OUTBOX_ROOT)
-        ),
-        obsidian_project_root=str(
-            obsidian.get("project_root") or DEFAULT_OBSIDIAN_PROJECT_ROOT
-        ),
-        loaded_from_config=True,
-    )
-
-
-def load_preferences(path: Path = CONFIG_PATH) -> Preferences:
-    if not path.exists():
-        return default_preferences()
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8-sig"))
-        if not isinstance(raw, dict):
-            raise ValueError("top-level JSON value is not an object")
-        return preferences_from_config(raw)
-    except Exception as exc:
-        print(
-            f"Paper preference config ignored because it is invalid: {path}: {exc}",
-            file=sys.stderr,
-        )
-        return default_preferences()
-
-
-def apply_preferences(preferences: Preferences) -> None:
-    global QUERIES, KEYWORDS, CATEGORY_WEIGHTS
-    global FRESHNESS_BONUS_DAYS, MAX_ATTACHMENT_BYTES, HISTORY_LIMIT, MIN_SCORE
-    QUERIES = preferences.queries
-    KEYWORDS = preferences.keyword_weights
-    CATEGORY_WEIGHTS = preferences.category_weights
-    FRESHNESS_BONUS_DAYS = preferences.freshness_bonus_days
-    MAX_ATTACHMENT_BYTES = preferences.max_attachment_bytes
-    HISTORY_LIMIT = preferences.history_limit
-    MIN_SCORE = preferences.min_score
-
-
-def preferences_match_default_selection(preferences: Preferences) -> bool:
-    return (
-        preferences.queries == DEFAULT_QUERIES
-        and preferences.keyword_weights == DEFAULT_KEYWORDS
-        and preferences.category_weights == DEFAULT_CATEGORY_WEIGHTS
-        and preferences.freshness_bonus_days == DEFAULT_FRESHNESS_BONUS_DAYS
-        and preferences.min_score == DEFAULT_MIN_SCORE
-    )
-
-
-def should_fallback_to_defaults() -> bool:
-    return PREFERENCES.loaded_from_config and not preferences_match_default_selection(PREFERENCES)
-
-
-PREFERENCES = load_preferences()
-apply_preferences(PREFERENCES)
 
 
 def timed_step(label: str, func: Callable[[], T]) -> T:
@@ -390,11 +173,12 @@ def score_paper(title: str, abstract: str, categories: list[str], published: dat
     for keyword, weight in KEYWORDS.items():
         if keyword in text:
             score += weight
-    for category in categories:
-        score += CATEGORY_WEIGHTS.get(category, 0)
+    if "cs.RO" in categories:
+        score += 10
+    if "eess.SY" in categories:
+        score += 5
     days_old = max(0, (datetime.now(timezone.utc) - published).days)
-    if FRESHNESS_BONUS_DAYS:
-        score += max(0, FRESHNESS_BONUS_DAYS - min(days_old, FRESHNESS_BONUS_DAYS))
+    score += max(0, 30 - min(days_old, 30))
     return score
 
 
@@ -476,12 +260,12 @@ def record_sent_paper(paper: Paper) -> None:
         },
     )
     HISTORY_PATH.write_text(
-        json.dumps(records[:HISTORY_LIMIT], ensure_ascii=False, indent=2) + "\n",
+        json.dumps(records[:500], ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
 
-def collect_ranked_papers() -> list[Paper]:
+def find_best_paper(sent_urls: set[str]) -> Paper:
     papers_by_url: dict[str, Paper] = {}
     errors: list[str] = []
     for query in QUERIES:
@@ -498,45 +282,12 @@ def collect_ranked_papers() -> list[Paper]:
         time.sleep(1)
     if not papers_by_url:
         detail = "\n".join(errors) if errors else "No query errors were captured."
-        if len(errors) >= len(QUERIES):
-            raise ArxivSearchUnavailableError(
-                f"No arXiv papers found for the configured robotics queries.\n{detail}"
-            )
-        raise NoPaperCandidatesError(
-            f"No arXiv papers matched the configured robotics queries.\n{detail}"
-        )
-    ranked_papers = [
-        paper
-        for paper in sorted(
-            papers_by_url.values(),
-            key=lambda paper: (paper.score, paper.published),
-            reverse=True,
-        )
-        if paper.score >= MIN_SCORE
-    ]
-    if not ranked_papers:
-        raise NoScoredPapersError(f"No papers met the configured minimum score: {MIN_SCORE}")
-    return ranked_papers
-
-
-def ranked_papers_with_default_fallback() -> list[Paper]:
-    try:
-        return collect_ranked_papers()
-    except (NoPaperCandidatesError, NoScoredPapersError) as configured_error:
-        if not should_fallback_to_defaults():
-            raise
-        print(
-            "Configured paper preferences did not produce a sendable candidate; "
-            f"falling back to built-in defaults. Error: {configured_error}",
-            file=sys.stderr,
-            flush=True,
-        )
-        apply_preferences(default_preferences())
-        return collect_ranked_papers()
-
-
-def find_best_paper(sent_urls: set[str]) -> Paper:
-    ranked_papers = ranked_papers_with_default_fallback()
+        raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
+    ranked_papers = sorted(
+        papers_by_url.values(),
+        key=lambda paper: (paper.score, paper.published),
+        reverse=True,
+    )
     for paper in ranked_papers:
         if paper.url not in sent_urls:
             return paper
@@ -812,12 +563,12 @@ def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
 
 
 def obsidian_project_root() -> str:
-    return optional_env("OBSIDIAN_PROJECT_ROOT") or PREFERENCES.obsidian_project_root
+    return optional_env("OBSIDIAN_PROJECT_ROOT") or DEFAULT_OBSIDIAN_PROJECT_ROOT
 
 
 def obsidian_outbox_root() -> Path:
     value = optional_env("OBSIDIAN_OUTBOX_ROOT")
-    return Path(value) if value else PREFERENCES.obsidian_outbox_root
+    return Path(value) if value else DEFAULT_OBSIDIAN_OUTBOX_ROOT
 
 
 def obsidian_project_relative(*segments: str) -> str:
@@ -1084,25 +835,6 @@ def send_failure_email(error: Exception) -> None:
 
 
 def main() -> int:
-    if "--check-preferences" in sys.argv:
-        source = str(CONFIG_PATH) if PREFERENCES.loaded_from_config else "built-in defaults"
-        print(f"Preferences source: {source}")
-        print(f"Enabled queries: {len(QUERIES)}")
-        print(f"Enabled keywords: {len(KEYWORDS)}")
-        print(f"Category weights: {len(CATEGORY_WEIGHTS)}")
-        print(f"Freshness bonus days: {FRESHNESS_BONUS_DAYS}")
-        print(f"Minimum score: {MIN_SCORE}")
-        return 0
-
-    if "--dry-run" in sys.argv:
-        sent_urls = timed_step("load sent history", load_sent_urls)
-        paper = timed_step("find best arXiv paper", lambda: find_best_paper(sent_urls))
-        print(f"DRY_RUN_SELECTED: {paper.title}")
-        print(f"URL: {paper.url}")
-        print(f"Score: {paper.score}")
-        print(f"Categories: {', '.join(paper.categories)}")
-        return 0
-
     try:
         sent_urls = timed_step("load sent history", load_sent_urls)
         paper = timed_step("find best arXiv paper", lambda: find_best_paper(sent_urls))
