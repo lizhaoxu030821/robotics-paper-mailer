@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2606.27581v1",
+    "title": "SceneBot: Contact-Prompted General Humanoid Whole Body Tracking with Scene-Interaction",
+    "published": "2026-06-25T22:13:29+00:00",
+    "sent_at": "2026-07-06T02:03:41.343538+00:00",
+    "score": 85
+  },
+  {
     "url": "https://arxiv.org/abs/2606.24466v2",
     "title": "FT-WBC: Learning Fault-Tolerant Whole-Body Control for Legged Loco-Manipulation",
     "published": "2026-06-23T11:58:45+00:00",
