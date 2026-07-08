@@ -1,5 +1,14 @@
 [
   {
+    "url": "https://arxiv.org/abs/2607.05180v1",
+    "canonical_url": "https://arxiv.org/abs/2607.05180",
+    "arxiv_id": "2607.05180",
+    "title": "VLM-CASE: Vision-Language Model Enabled Context-Adaptive Safety Envelopes for Anticipatory Safe Autonomous Driving",
+    "published": "2026-07-06T14:58:47+00:00",
+    "sent_at": "2026-07-08T02:04:55.816848+00:00",
+    "score": 71
+  },
+  {
     "url": "https://arxiv.org/abs/2607.02205v1",
     "title": "Actuator Reality Shaping for Zero-Shot Sim-to-Real Robot Learning",
     "published": "2026-07-02T14:12:41+00:00",
