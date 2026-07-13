@@ -194,7 +194,7 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
     last_error: Exception | None = None
     for attempt in range(2):
         try:
-            with urllib.request.urlopen(req, timeout=25) as response:
+            with urllib.request.urlopen(req, timeout=45) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
@@ -204,7 +204,7 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
             last_error = exc
             if attempt == 1:
                 raise
-        wait_seconds = 5 * (attempt + 1)
+        wait_seconds = 10 * (attempt + 1)
         print(f"arXiv request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
         time.sleep(wait_seconds)
     raise RuntimeError(f"arXiv request failed after retries: {last_error}")
@@ -409,7 +409,7 @@ def find_best_paper(sent_paper_keys: set[str]) -> Paper:
             current = papers_by_url.get(paper_key)
             if current is None or paper.score > current.score:
                 papers_by_url[paper_key] = paper
-        time.sleep(1)
+        time.sleep(3)
     if not papers_by_url:
         detail = "\n".join(errors) if errors else "No query errors were captured."
         raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
@@ -431,7 +431,7 @@ def download_pdf(pdf_url: str) -> Path | None:
     target = Path(tempfile.gettempdir()) / safe_name
     req = urllib.request.Request(pdf_url, headers={"User-Agent": "daily-robotics-paper-mailer/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=25) as response:
+        with urllib.request.urlopen(req, timeout=45) as response:
             target.write_bytes(response.read())
         size = target.stat().st_size
         if 10_000 < size <= MAX_ATTACHMENT_BYTES:
