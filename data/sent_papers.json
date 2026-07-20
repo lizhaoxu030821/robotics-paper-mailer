@@ -1,5 +1,14 @@
 [
   {
+    "url": "https://arxiv.org/abs/2607.15701v1",
+    "canonical_url": "https://arxiv.org/abs/2607.15701",
+    "arxiv_id": "2607.15701",
+    "title": "RAVEN: Reinforcement-Adaptive Visibility-Graph Planning for Robust Humanoid Navigation with Collision-Free MPC",
+    "published": "2026-07-17T07:23:54+00:00",
+    "sent_at": "2026-07-20T03:08:40.339549+00:00",
+    "score": 98
+  },
+  {
     "url": "https://arxiv.org/abs/2607.11874v1",
     "canonical_url": "https://arxiv.org/abs/2607.11874",
     "arxiv_id": "2607.11874",
