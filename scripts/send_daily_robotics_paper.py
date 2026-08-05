@@ -25,6 +25,10 @@ from typing import Callable, TypeVar
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
+ARXIV_RSS_FEEDS = (
+    "https://rss.arxiv.org/rss/cs.RO",
+    "https://rss.arxiv.org/rss/eess.SY",
+)
 ZOTERO_API = "https://api.zotero.org"
 SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
@@ -33,14 +37,10 @@ HISTORY_PATH = Path("data") / "sent_papers.json"
 DEFAULT_OBSIDIAN_OUTBOX_ROOT = Path("obsidian-outbox")
 DEFAULT_OBSIDIAN_PROJECT_ROOT = "ResearchVault/legged-robot-motion-control"
 
-QUERIES = [
-    "cat:cs.RO AND all:control",
-    "cat:cs.RO AND all:locomotion",
-    "cat:cs.RO AND all:humanoid",
-    "cat:cs.RO AND all:manipulation",
-    "cat:cs.RO AND all:reinforcement",
-    "cat:eess.SY AND all:robot",
-]
+API_QUERY = (
+    "((cat:cs.RO AND (all:control OR all:locomotion OR all:humanoid OR "
+    "all:manipulation OR all:reinforcement)) OR (cat:eess.SY AND all:robot))"
+)
 
 KEYWORDS = {
     "whole-body": 12,
@@ -62,6 +62,22 @@ KEYWORDS = {
     "sim-to-real": 7,
     "policy": 4,
 }
+
+RSS_RELEVANCE_TERMS = (
+    "control",
+    "locomotion",
+    "legged",
+    "humanoid",
+    "quadruped",
+    "biped",
+    "manipulation",
+    "reinforcement",
+    "whole-body",
+    "whole body",
+    "model predictive",
+    "trajectory optimization",
+    "motion planning",
+)
 
 T = TypeVar("T")
 
@@ -210,6 +226,30 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
     raise RuntimeError(f"arXiv request failed after retries: {last_error}")
 
 
+def rss_request(feed_url: str) -> bytes:
+    req = urllib.request.Request(
+        feed_url,
+        headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
+    )
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=45) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == 1:
+                raise
+        except (TimeoutError, OSError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt == 1:
+                raise
+        wait_seconds = 10 * (attempt + 1)
+        print(f"arXiv RSS request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
+        time.sleep(wait_seconds)
+    raise RuntimeError(f"arXiv RSS request failed after retries: {last_error}")
+
+
 def score_paper(title: str, abstract: str, categories: list[str], published: datetime) -> int:
     text = f"{title} {abstract}".lower()
     score = 0
@@ -265,6 +305,52 @@ def parse_feed(raw: bytes) -> list[Paper]:
                 abstract=abstract,
                 url=url,
                 pdf_url=pdf_url,
+                categories=categories,
+                score=score_paper(title, abstract, categories, published),
+            )
+        )
+    return papers
+
+
+def parse_rss_feed(raw: bytes) -> list[Paper]:
+    root = ET.fromstring(raw)
+    papers: list[Paper] = []
+    for item in root.findall("./channel/item"):
+        title = normalize_space(item.findtext("title", default=""))
+        url = normalize_space(item.findtext("link", default="") or item.findtext("guid", default=""))
+        if not title or not url:
+            continue
+        arxiv_id = canonical_arxiv_id(url)
+        if not arxiv_id:
+            continue
+        description = item.findtext("description", default="")
+        abstract = normalize_space(re.sub(r"<[^>]+>", " ", description))
+        if not any(term in f"{title} {abstract}".lower() for term in RSS_RELEVANCE_TERMS):
+            continue
+        published_text = item.findtext("pubDate", default="")
+        try:
+            published = email.utils.parsedate_to_datetime(published_text).astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            published = datetime.now(timezone.utc)
+        categories = [
+            normalize_space(category.text or "")
+            for category in item.findall("category")
+            if normalize_space(category.text or "")
+        ]
+        authors = [
+            normalize_space(author.text or "")
+            for author in item.findall("{http://purl.org/dc/elements/1.1/}creator")
+            if normalize_space(author.text or "")
+        ]
+        papers.append(
+            Paper(
+                title=title,
+                authors=authors,
+                published=published,
+                updated=published,
+                abstract=abstract,
+                url=canonical_arxiv_url(url),
+                pdf_url=f"https://arxiv.org/pdf/{arxiv_id}.pdf",
                 categories=categories,
                 score=score_paper(title, abstract, categories, published),
             )
@@ -397,22 +483,38 @@ def load_obsidian_outbox_paper_keys() -> set[str]:
 def find_best_paper(sent_paper_keys: set[str]) -> Paper:
     papers_by_url: dict[str, Paper] = {}
     errors: list[str] = []
-    for query in QUERIES:
-        try:
-            raw = arxiv_request(query)
-        except Exception as exc:
-            errors.append(f"{query}: {exc}")
-            print(f"Skipping query after repeated arXiv failures: {query}: {exc}", file=sys.stderr)
-            continue
-        for paper in parse_feed(raw):
-            paper_key = canonical_arxiv_id(paper.url) or paper.url
-            current = papers_by_url.get(paper_key)
-            if current is None or paper.score > current.score:
-                papers_by_url[paper_key] = paper
-        time.sleep(3)
+    try:
+        raw = arxiv_request(API_QUERY, max_results=100)
+        api_papers = parse_feed(raw)
+        print(f"arXiv API returned {len(api_papers)} candidates.", flush=True)
+    except Exception as exc:
+        errors.append(f"API: {exc}")
+        api_papers = []
+        print(f"arXiv API unavailable; using RSS fallback: {exc}", file=sys.stderr)
+
+    for paper in api_papers:
+        paper_key = canonical_arxiv_id(paper.url) or paper.url
+        current = papers_by_url.get(paper_key)
+        if current is None or paper.score > current.score:
+            papers_by_url[paper_key] = paper
+
+    if not papers_by_url:
+        for feed_url in ARXIV_RSS_FEEDS:
+            try:
+                rss_papers = parse_rss_feed(rss_request(feed_url))
+                print(f"arXiv RSS fallback returned {len(rss_papers)} candidates from {feed_url}.", flush=True)
+            except Exception as exc:
+                errors.append(f"RSS {feed_url}: {exc}")
+                print(f"Skipping unavailable arXiv RSS feed: {feed_url}: {exc}", file=sys.stderr)
+                continue
+            for paper in rss_papers:
+                paper_key = canonical_arxiv_id(paper.url) or paper.url
+                current = papers_by_url.get(paper_key)
+                if current is None or paper.score > current.score:
+                    papers_by_url[paper_key] = paper
     if not papers_by_url:
         detail = "\n".join(errors) if errors else "No query errors were captured."
-        raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
+        raise RuntimeError(f"No arXiv papers found from the API or RSS fallback.\n{detail}")
     ranked_papers = sorted(
         papers_by_url.values(),
         key=lambda paper: (paper.score, paper.published),
