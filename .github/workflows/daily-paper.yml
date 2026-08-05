@@ -1,6 +1,9 @@
 name: Daily Robotics Paper Email
 
 on:
+  schedule:
+    # GitHub Actions cron uses UTC. 02:15 UTC is 10:15 in China Standard Time.
+    - cron: "15 2 * * *"
   workflow_dispatch:
 
 permissions:
