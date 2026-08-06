@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "selected_topics": [
+    "motion_control",
+    "legged_humanoid",
+    "manipulation",
+    "reinforcement_learning",
+    "mpc",
+    "whole_body_control"
+  ],
+  "custom_queries": [],
+  "custom_keywords": {},
+  "excluded_keywords": [],
+  "papers_per_day": 1,
+  "max_attachment_mb": 18,
+  "weekday_topics": {},
+  "weekly_rotation_order": [
+    "motion_control",
+    "legged_humanoid",
+    "manipulation",
+    "reinforcement_learning",
+    "mpc",
+    "whole_body_control"
+  ],
+  "topic_overrides": {
+    "motion_control": {
+      "label": "机器人运动控制",
+      "queries": [
+        "cat:cs.RO AND all:control",
+        "cat:eess.SY AND all:robot"
+      ],
+      "keywords": {
+        "motion control": 8,
+        "robot control": 8,
+        "trajectory optimization": 7
+      }
+    }
+  }
+}
