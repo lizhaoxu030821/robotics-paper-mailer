@@ -21,69 +21,118 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Callable, TypeVar
+from zoneinfo import ZoneInfo
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
-ARXIV_RSS_FEEDS = (
-    "https://rss.arxiv.org/rss/cs.RO",
-    "https://rss.arxiv.org/rss/eess.SY",
-)
 ZOTERO_API = "https://api.zotero.org"
 SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
 MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
 HISTORY_PATH = Path("data") / "sent_papers.json"
-DEFAULT_OBSIDIAN_OUTBOX_ROOT = Path("obsidian-outbox")
-DEFAULT_OBSIDIAN_PROJECT_ROOT = "ResearchVault/legged-robot-motion-control"
 
-API_QUERY = (
-    "((cat:cs.RO AND (all:control OR all:locomotion OR all:humanoid OR "
-    "all:manipulation OR all:reinforcement)) OR (cat:eess.SY AND all:robot))"
-)
-
-KEYWORDS = {
-    "whole-body": 12,
-    "whole body": 12,
-    "mpc": 11,
-    "model predictive control": 11,
-    "locomotion": 10,
-    "legged": 10,
-    "humanoid": 10,
-    "quadruped": 9,
-    "biped": 9,
-    "reinforcement learning": 9,
-    "rl": 5,
-    "motion control": 8,
-    "robot control": 8,
-    "manipulation": 7,
-    "loco-manipulation": 12,
-    "trajectory optimization": 7,
-    "sim-to-real": 7,
-    "policy": 4,
+TOPIC_CATALOG = {
+    "motion_control": {
+        "label": "机器人运动控制",
+        "queries": ["cat:cs.RO AND all:control", "cat:eess.SY AND all:robot"],
+        "keywords": {"motion control": 8, "robot control": 8, "trajectory optimization": 7},
+    },
+    "legged_humanoid": {
+        "label": "腿足与人形机器人",
+        "queries": ["cat:cs.RO AND all:locomotion", "cat:cs.RO AND all:humanoid"],
+        "keywords": {"locomotion": 10, "legged": 10, "humanoid": 10, "quadruped": 9, "biped": 9},
+    },
+    "manipulation": {
+        "label": "机械臂与操作控制",
+        "queries": ["cat:cs.RO AND all:manipulation"],
+        "keywords": {"manipulation": 8, "loco-manipulation": 12},
+    },
+    "reinforcement_learning": {
+        "label": "强化学习控制",
+        "queries": ["cat:cs.RO AND all:reinforcement"],
+        "keywords": {"reinforcement learning": 9, "rl": 5, "policy": 4, "sim-to-real": 7},
+    },
+    "mpc": {
+        "label": "模型预测控制 MPC",
+        "queries": ["cat:cs.RO AND all:\"model predictive control\""],
+        "keywords": {"mpc": 11, "model predictive control": 11},
+    },
+    "whole_body_control": {
+        "label": "全身控制 Whole-body Control",
+        "queries": ["cat:cs.RO AND all:\"whole body\""],
+        "keywords": {"whole-body": 12, "whole body": 12},
+    },
 }
-
-RSS_RELEVANCE_TERMS = (
-    "control",
-    "locomotion",
-    "legged",
-    "humanoid",
-    "quadruped",
-    "biped",
-    "manipulation",
-    "reinforcement",
-    "whole-body",
-    "whole body",
-    "model predictive",
-    "trajectory optimization",
-    "motion planning",
-)
-
-T = TypeVar("T")
+DEFAULT_TOPIC_IDS = list(TOPIC_CATALOG)
 
 
-class NoNewPaperError(RuntimeError):
-    pass
+def load_topic_config() -> tuple[dict[str, object], list[str], dict[str, int], list[str]]:
+    config_path = Path(os.environ.get("PAPER_CONFIG_PATH", "config/paper_topics.json"))
+    config: dict[str, object] = {}
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Topic config ignored: {exc}", file=sys.stderr)
+
+    overrides = config.get("topic_overrides", {})
+    if isinstance(overrides, dict):
+        for topic_id, override in overrides.items():
+            if topic_id not in TOPIC_CATALOG or not isinstance(override, dict):
+                continue
+            topic = TOPIC_CATALOG[topic_id]
+            label = override.get("label")
+            queries = override.get("queries")
+            keywords = override.get("keywords")
+            if isinstance(label, str) and label.strip():
+                topic["label"] = label.strip()
+            if isinstance(queries, list):
+                topic["queries"] = [query.strip() for query in queries if isinstance(query, str) and query.strip()]
+            if isinstance(keywords, dict):
+                topic["keywords"] = {
+                    keyword.strip().lower(): int(weight)
+                    for keyword, weight in keywords.items()
+                    if isinstance(keyword, str) and keyword.strip() and isinstance(weight, (int, float))
+                }
+
+    selected = config.get("selected_topics", DEFAULT_TOPIC_IDS)
+    weekday_topics = config.get("weekday_topics", {})
+    weekday = str(datetime.now(ZoneInfo("Asia/Shanghai")).weekday())
+    rotation_order = config.get("weekly_rotation_order", [])
+    rotation_ids = [topic_id for topic_id in rotation_order if topic_id in TOPIC_CATALOG] if isinstance(rotation_order, list) else []
+    if rotation_ids:
+        selected = [rotation_ids[int(weekday) % len(rotation_ids)]]
+    elif isinstance(weekday_topics, dict) and isinstance(weekday_topics.get(weekday), list):
+        selected = weekday_topics[weekday]
+    selected_ids = [topic_id for topic_id in selected if topic_id in TOPIC_CATALOG] if isinstance(selected, list) else DEFAULT_TOPIC_IDS
+    if not selected_ids:
+        selected_ids = DEFAULT_TOPIC_IDS
+
+    queries: list[str] = []
+    keywords: dict[str, int] = {}
+    for topic_id in selected_ids:
+        topic = TOPIC_CATALOG[topic_id]
+        queries.extend(topic["queries"])
+        for keyword, weight in topic["keywords"].items():
+            keywords[keyword] = max(keywords.get(keyword, 0), weight)
+
+    custom_queries = config.get("custom_queries", [])
+    if isinstance(custom_queries, list):
+        queries.extend(query.strip() for query in custom_queries if isinstance(query, str) and query.strip())
+    custom_keywords = config.get("custom_keywords", {})
+    if isinstance(custom_keywords, dict):
+        for keyword, weight in custom_keywords.items():
+            if isinstance(keyword, str) and keyword.strip() and isinstance(weight, (int, float)):
+                keywords[keyword.strip().lower()] = max(keywords.get(keyword.strip().lower(), 0), int(weight))
+
+    excluded = config.get("excluded_keywords", [])
+    excluded_keywords = [keyword.strip().lower() for keyword in excluded if isinstance(keyword, str) and keyword.strip()] if isinstance(excluded, list) else []
+    return config, list(dict.fromkeys(queries)), keywords, excluded_keywords
+
+
+TOPIC_CONFIG, QUERIES, KEYWORDS, EXCLUDED_KEYWORDS = load_topic_config()
+PAPERS_PER_DAY = max(1, min(5, int(TOPIC_CONFIG.get("papers_per_day", 1))))
+MAX_ATTACHMENT_BYTES = max(1, min(25, int(TOPIC_CONFIG.get("max_attachment_mb", 18)))) * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -97,16 +146,6 @@ class Paper:
     pdf_url: str
     categories: list[str]
     score: int
-
-
-def timed_step(label: str, func: Callable[[], T]) -> T:
-    start = time.monotonic()
-    print(f"[timer] {label} started", flush=True)
-    try:
-        return func()
-    finally:
-        elapsed = time.monotonic() - start
-        print(f"[timer] {label} finished in {elapsed:.1f}s", flush=True)
 
 
 def require_env(name: str) -> str:
@@ -135,58 +174,9 @@ def arxiv_id_from_url(url: str) -> str:
     return url.rstrip("/").split("/")[-1]
 
 
-def canonical_arxiv_id(value: str) -> str:
-    cleaned = value.strip()
-    if not cleaned:
-        return ""
-    cleaned = cleaned.rstrip("/").split("/")[-1]
-    cleaned = re.sub(r"\.pdf$", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"v\d+$", "", cleaned, flags=re.IGNORECASE)
-    return cleaned
-
-
-def canonical_arxiv_url(url: str) -> str:
-    arxiv_id = canonical_arxiv_id(url)
-    return f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else ""
-
-
-def normalized_title_key(title: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", normalize_space(title).lower())
-
-
-def identity_keys_for_values(*, url: str = "", title: str = "", arxiv_id: str = "") -> set[str]:
-    keys: set[str] = set()
-    resolved_arxiv_id = canonical_arxiv_id(arxiv_id or url)
-    if resolved_arxiv_id:
-        keys.add(f"arxiv:{resolved_arxiv_id}")
-        keys.add(f"url:https://arxiv.org/abs/{resolved_arxiv_id}")
-    title_key = normalized_title_key(title)
-    if title_key:
-        keys.add(f"title:{title_key}")
-    return keys
-
-
-def identity_keys_for_paper(paper: Paper) -> set[str]:
-    return identity_keys_for_values(
-        url=paper.url,
-        title=paper.title,
-        arxiv_id=arxiv_id_from_url(paper.url),
-    )
-
-
 def safe_filename(value: str, suffix: str = ".pdf") -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._")
     return (cleaned[:120] or "daily_robotics_paper") + suffix
-
-
-def safe_markdown_stem(value: str) -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-_")
-    cleaned = re.sub(r"-+", "-", cleaned)
-    return cleaned[:36] or "daily-robotics-paper"
-
-
-def yaml_string(value: object) -> str:
-    return json.dumps(str(value or ""), ensure_ascii=False)
 
 
 def parse_datetime(value: str) -> datetime:
@@ -208,50 +198,28 @@ def arxiv_request(query: str, max_results: int = 50) -> bytes:
         headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
     )
     last_error: Exception | None = None
-    for attempt in range(2):
+    for attempt in range(5):
         try:
-            with urllib.request.urlopen(req, timeout=45) as response:
+            with urllib.request.urlopen(req, timeout=90) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
-            if exc.code not in {429, 500, 502, 503, 504} or attempt == 1:
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
                 raise
         except (TimeoutError, OSError, urllib.error.URLError) as exc:
             last_error = exc
-            if attempt == 1:
+            if attempt == 4:
                 raise
-        wait_seconds = 10 * (attempt + 1)
+        wait_seconds = 15 * (attempt + 1)
         print(f"arXiv request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
         time.sleep(wait_seconds)
     raise RuntimeError(f"arXiv request failed after retries: {last_error}")
 
 
-def rss_request(feed_url: str) -> bytes:
-    req = urllib.request.Request(
-        feed_url,
-        headers={"User-Agent": "daily-robotics-paper-mailer/1.0"},
-    )
-    last_error: Exception | None = None
-    for attempt in range(2):
-        try:
-            with urllib.request.urlopen(req, timeout=45) as response:
-                return response.read()
-        except urllib.error.HTTPError as exc:
-            last_error = exc
-            if exc.code not in {429, 500, 502, 503, 504} or attempt == 1:
-                raise
-        except (TimeoutError, OSError, urllib.error.URLError) as exc:
-            last_error = exc
-            if attempt == 1:
-                raise
-        wait_seconds = 10 * (attempt + 1)
-        print(f"arXiv RSS request failed temporarily ({last_error}); retrying in {wait_seconds}s.", file=sys.stderr)
-        time.sleep(wait_seconds)
-    raise RuntimeError(f"arXiv RSS request failed after retries: {last_error}")
-
-
 def score_paper(title: str, abstract: str, categories: list[str], published: datetime) -> int:
     text = f"{title} {abstract}".lower()
+    if any(keyword in text for keyword in EXCLUDED_KEYWORDS):
+        return -10_000
     score = 0
     for keyword, weight in KEYWORDS.items():
         if keyword in text:
@@ -312,75 +280,14 @@ def parse_feed(raw: bytes) -> list[Paper]:
     return papers
 
 
-def parse_rss_feed(raw: bytes) -> list[Paper]:
-    root = ET.fromstring(raw)
-    papers: list[Paper] = []
-    for item in root.findall("./channel/item"):
-        title = normalize_space(item.findtext("title", default=""))
-        url = normalize_space(item.findtext("link", default="") or item.findtext("guid", default=""))
-        if not title or not url:
-            continue
-        arxiv_id = canonical_arxiv_id(url)
-        if not arxiv_id:
-            continue
-        description = item.findtext("description", default="")
-        abstract = normalize_space(re.sub(r"<[^>]+>", " ", description))
-        if not any(term in f"{title} {abstract}".lower() for term in RSS_RELEVANCE_TERMS):
-            continue
-        published_text = item.findtext("pubDate", default="")
-        try:
-            published = email.utils.parsedate_to_datetime(published_text).astimezone(timezone.utc)
-        except (TypeError, ValueError):
-            published = datetime.now(timezone.utc)
-        categories = [
-            normalize_space(category.text or "")
-            for category in item.findall("category")
-            if normalize_space(category.text or "")
-        ]
-        authors = [
-            normalize_space(author.text or "")
-            for author in item.findall("{http://purl.org/dc/elements/1.1/}creator")
-            if normalize_space(author.text or "")
-        ]
-        papers.append(
-            Paper(
-                title=title,
-                authors=authors,
-                published=published,
-                updated=published,
-                abstract=abstract,
-                url=canonical_arxiv_url(url),
-                pdf_url=f"https://arxiv.org/pdf/{arxiv_id}.pdf",
-                categories=categories,
-                score=score_paper(title, abstract, categories, published),
-            )
-        )
-    return papers
-
-
-def load_sent_paper_keys() -> set[str]:
+def load_sent_urls() -> set[str]:
     if not HISTORY_PATH.exists():
         return set()
     try:
         records = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return set()
-    keys: set[str] = set()
-    for record in records:
-        if not isinstance(record, dict):
-            continue
-        keys.update(
-            identity_keys_for_values(
-                url=str(record.get("url", "")),
-                title=str(record.get("title", "")),
-                arxiv_id=str(record.get("arxiv_id", "")),
-            )
-        )
-    return keys
-
-
-def load_sent_urls() -> set[str]:
-    return load_sent_paper_keys()
+    return {record.get("url", "") for record in records if record.get("url")}
 
 
 def record_sent_paper(paper: Paper) -> None:
@@ -392,22 +299,11 @@ def record_sent_paper(paper: Paper) -> None:
         except (OSError, json.JSONDecodeError):
             records = []
 
-    paper_keys = identity_keys_for_paper(paper)
-    records = [
-        record
-        for record in records
-        if identity_keys_for_values(
-            url=str(record.get("url", "")),
-            title=str(record.get("title", "")),
-            arxiv_id=str(record.get("arxiv_id", "")),
-        ).isdisjoint(paper_keys)
-    ]
+    records = [record for record in records if record.get("url") != paper.url]
     records.insert(
         0,
         {
             "url": paper.url,
-            "canonical_url": canonical_arxiv_url(paper.url),
-            "arxiv_id": canonical_arxiv_id(paper.url),
             "title": paper.title,
             "published": paper.published.isoformat(),
             "sent_at": datetime.now(timezone.utc).isoformat(),
@@ -420,110 +316,37 @@ def record_sent_paper(paper: Paper) -> None:
     )
 
 
-def parse_metadata_value(value: str) -> str:
-    cleaned = value.strip()
-    if not cleaned:
-        return ""
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError:
-        return cleaned.strip("\"'")
-    return parsed if isinstance(parsed, str) else str(parsed)
-
-
-def load_obsidian_outbox_paper_keys() -> set[str]:
-    root = obsidian_outbox_root()
-    if not root.exists():
-        return set()
-
-    keys: set[str] = set()
-    arxiv_id_pattern = re.compile(r"(?<![\d.])\d{4}\.\d{4,5}(?:v\d+)?(?![\d.])", re.IGNORECASE)
-    arxiv_url_pattern = re.compile(
-        r"https://arxiv\.org/(?:abs|pdf)/\d{4}\.\d{4,5}(?:v\d+)?(?:\.pdf)?",
-        re.IGNORECASE,
-    )
-    metadata_fields = {"zotero_key", "title", "paper_title", "url", "pdf_url"}
-
-    for path in root.rglob("*.md"):
-        for match in arxiv_id_pattern.finditer(path.stem):
-            keys.update(identity_keys_for_values(arxiv_id=match.group(0)))
-
-        try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-
-        for match in arxiv_url_pattern.finditer(content):
-            keys.update(identity_keys_for_values(url=match.group(0)))
-
-        for line in content.splitlines()[:80]:
-            arxiv_line = re.match(r"\s*-?\s*arxiv\s+id\s*:\s*(\S+)", line, flags=re.IGNORECASE)
-            if arxiv_line:
-                keys.update(identity_keys_for_values(arxiv_id=parse_metadata_value(arxiv_line.group(1))))
-                continue
-
-            if ":" not in line:
-                continue
-            field, raw_value = line.split(":", 1)
-            field = field.strip()
-            if field not in metadata_fields:
-                continue
-            value = parse_metadata_value(raw_value)
-            if field in {"zotero_key"}:
-                keys.update(identity_keys_for_values(arxiv_id=value))
-            elif field in {"url", "pdf_url"}:
-                keys.update(identity_keys_for_values(url=value))
-            else:
-                keys.update(identity_keys_for_values(title=value))
-
-    print(f"Loaded {len(keys)} Obsidian outbox paper identity keys.", flush=True)
-    return keys
-
-
-def find_best_paper(sent_paper_keys: set[str]) -> Paper:
+def find_best_papers(sent_urls: set[str], count: int) -> list[Paper]:
     papers_by_url: dict[str, Paper] = {}
     errors: list[str] = []
-    try:
-        raw = arxiv_request(API_QUERY, max_results=100)
-        api_papers = parse_feed(raw)
-        print(f"arXiv API returned {len(api_papers)} candidates.", flush=True)
-    except Exception as exc:
-        errors.append(f"API: {exc}")
-        api_papers = []
-        print(f"arXiv API unavailable; using RSS fallback: {exc}", file=sys.stderr)
-
-    for paper in api_papers:
-        paper_key = canonical_arxiv_id(paper.url) or paper.url
-        current = papers_by_url.get(paper_key)
-        if current is None or paper.score > current.score:
-            papers_by_url[paper_key] = paper
-
-    if not papers_by_url:
-        for feed_url in ARXIV_RSS_FEEDS:
-            try:
-                rss_papers = parse_rss_feed(rss_request(feed_url))
-                print(f"arXiv RSS fallback returned {len(rss_papers)} candidates from {feed_url}.", flush=True)
-            except Exception as exc:
-                errors.append(f"RSS {feed_url}: {exc}")
-                print(f"Skipping unavailable arXiv RSS feed: {feed_url}: {exc}", file=sys.stderr)
-                continue
-            for paper in rss_papers:
-                paper_key = canonical_arxiv_id(paper.url) or paper.url
-                current = papers_by_url.get(paper_key)
-                if current is None or paper.score > current.score:
-                    papers_by_url[paper_key] = paper
+    for query in QUERIES:
+        try:
+            raw = arxiv_request(query)
+        except Exception as exc:
+            errors.append(f"{query}: {exc}")
+            print(f"Skipping query after repeated arXiv failures: {query}: {exc}", file=sys.stderr)
+            continue
+        for paper in parse_feed(raw):
+            current = papers_by_url.get(paper.url)
+            if current is None or paper.score > current.score:
+                papers_by_url[paper.url] = paper
+        time.sleep(3)
     if not papers_by_url:
         detail = "\n".join(errors) if errors else "No query errors were captured."
-        raise RuntimeError(f"No arXiv papers found from the API or RSS fallback.\n{detail}")
+        raise RuntimeError(f"No arXiv papers found for the configured robotics queries.\n{detail}")
     ranked_papers = sorted(
         papers_by_url.values(),
         key=lambda paper: (paper.score, paper.published),
         reverse=True,
     )
-    for paper in ranked_papers:
-        if identity_keys_for_paper(paper).isdisjoint(sent_paper_keys):
-            return paper
-    raise NoNewPaperError("All ranked candidate papers were already sent or already exist in Zotero.")
+    unseen = [paper for paper in ranked_papers if paper.url not in sent_urls and paper.score >= 0]
+    if unseen:
+        return unseen[:count]
+    available = [paper for paper in ranked_papers if paper.score >= 0]
+    if not available:
+        raise RuntimeError("All candidate papers were excluded by the configured excluded keywords.")
+    print("All candidate papers have been sent before; reusing the best available paper.", file=sys.stderr)
+    return available[:count]
 
 
 def download_pdf(pdf_url: str) -> Path | None:
@@ -533,7 +356,7 @@ def download_pdf(pdf_url: str) -> Path | None:
     target = Path(tempfile.gettempdir()) / safe_name
     req = urllib.request.Request(pdf_url, headers={"User-Agent": "daily-robotics-paper-mailer/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=45) as response:
+        with urllib.request.urlopen(req, timeout=90) as response:
             target.write_bytes(response.read())
         size = target.stat().st_size
         if 10_000 < size <= MAX_ATTACHMENT_BYTES:
@@ -619,74 +442,6 @@ def zotero_find_collection_key(api_key: str, user_id: str, collection_name: str)
     raise RuntimeError(f"Zotero collection not found: {collection_name}")
 
 
-def header_value(headers: dict[str, str], name: str, fallback: str = "") -> str:
-    for key, value in headers.items():
-        if key.lower() == name.lower():
-            return value
-    return fallback
-
-
-def zotero_item_identity_keys(item: object) -> set[str]:
-    if not isinstance(item, dict):
-        return set()
-    data = item.get("data", {})
-    if not isinstance(data, dict):
-        return set()
-    return identity_keys_for_values(
-        url=str(data.get("url", "")),
-        title=str(data.get("title", "")),
-        arxiv_id=str(data.get("archiveLocation", "")),
-    )
-
-
-def zotero_collection_paper_keys(api_key: str, user_id: str, collection_key: str) -> set[str]:
-    keys: set[str] = set()
-    start = 0
-    limit = 100
-    while True:
-        params = urllib.parse.urlencode(
-            {
-                "start": start,
-                "limit": limit,
-                "includeTrashed": 0,
-            }
-        )
-        _, items, headers = zotero_json_request(
-            "GET",
-            f"/users/{user_id}/collections/{collection_key}/items?{params}",
-            api_key=api_key,
-        )
-        if not isinstance(items, list) or not items:
-            break
-        for item in items:
-            keys.update(zotero_item_identity_keys(item))
-        start += len(items)
-        total_text = header_value(headers, "Total-Results")
-        try:
-            total = int(total_text)
-        except ValueError:
-            total = 0
-        if len(items) < limit or (total and start >= total):
-            break
-    return keys
-
-
-def load_zotero_paper_keys() -> set[str]:
-    if not zotero_enabled():
-        return set()
-    try:
-        api_key = require_env("ZOTERO_API_KEY")
-        user_id = require_env("ZOTERO_USER_ID")
-        collection_name = require_env("ZOTERO_COLLECTION_NAME")
-        collection_key = zotero_find_collection_key(api_key, user_id, collection_name)
-        keys = zotero_collection_paper_keys(api_key, user_id, collection_key)
-        print(f"Loaded {len(keys)} Zotero paper identity keys.", flush=True)
-        return keys
-    except Exception as exc:
-        print(f"Zotero duplicate check skipped: {exc}", file=sys.stderr)
-        return set()
-
-
 def zotero_create_item(
     api_key: str,
     user_id: str,
@@ -719,22 +474,6 @@ def zotero_create_item(
         raise RuntimeError(f"Zotero item creation failed: {response}")
     first = successful.get("0") or next(iter(successful.values()))
     return first["key"]
-
-
-def zotero_delete_item(api_key: str, user_id: str, item_key: str, version: int | None) -> None:
-    headers = {}
-    if version is not None:
-        headers["If-Unmodified-Since-Version"] = str(version)
-    try:
-        zotero_request(
-            "DELETE",
-            f"/users/{user_id}/items/{item_key}",
-            api_key=api_key,
-            headers=headers,
-            timeout=30,
-        )
-    except Exception as exc:
-        print(f"Zotero cleanup failed for attachment {item_key}: {exc}", file=sys.stderr)
 
 
 def zotero_create_link_attachment(
@@ -796,17 +535,7 @@ def zotero_create_imported_attachment(
         raise RuntimeError(f"Zotero imported attachment creation failed: {response}")
     first = successful.get("0") or next(iter(successful.values()))
     attachment_key = first["key"]
-    attachment_version = first.get("version") if isinstance(first, dict) else None
-    try:
-        zotero_upload_attachment_file(api_key, user_id, attachment_key, pdf_path, filename, content_type)
-    except Exception:
-        zotero_delete_item(
-            api_key,
-            user_id,
-            attachment_key,
-            attachment_version if isinstance(attachment_version, int) else None,
-        )
-        raise
+    zotero_upload_attachment_file(api_key, user_id, attachment_key, pdf_path, filename, content_type)
     return attachment_key
 
 
@@ -850,7 +579,7 @@ def zotero_upload_attachment_file(
             headers={"Content-Type": upload_info["contentType"]},
             method="POST",
         )
-        with urllib.request.urlopen(upload_req, timeout=45) as response:
+        with urllib.request.urlopen(upload_req, timeout=120) as response:
             response.read()
     zotero_request(
         "POST",
@@ -873,199 +602,18 @@ def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
     collection_name = require_env("ZOTERO_COLLECTION_NAME")
     try:
         collection_key = zotero_find_collection_key(api_key, user_id, collection_name)
-        existing_keys = zotero_collection_paper_keys(api_key, user_id, collection_key)
-        if not identity_keys_for_paper(paper).isdisjoint(existing_keys):
-            print(f"Zotero sync skipped: item already exists: {paper.title}", file=sys.stderr)
-            return
         item_key = zotero_create_item(api_key, user_id, collection_key, paper)
         if pdf_path is not None:
             try:
                 zotero_create_imported_attachment(api_key, user_id, item_key, paper, pdf_path)
             except Exception as exc:
-                print(
-                    f"Zotero PDF upload failed; removed broken attachment and falling back to linked PDF: {exc}",
-                    file=sys.stderr,
-                )
-                zotero_create_link_attachment(api_key, user_id, item_key, paper)
-            else:
+                print(f"Zotero PDF upload failed; falling back to linked PDF: {exc}", file=sys.stderr)
                 zotero_create_link_attachment(api_key, user_id, item_key, paper)
         else:
             zotero_create_link_attachment(api_key, user_id, item_key, paper)
         print(f"ZOTERO_SYNCED: {paper.title}")
     except Exception as exc:
         print(f"Zotero sync failed: {exc}", file=sys.stderr)
-
-
-def obsidian_project_root() -> str:
-    return optional_env("OBSIDIAN_PROJECT_ROOT") or DEFAULT_OBSIDIAN_PROJECT_ROOT
-
-
-def obsidian_outbox_root() -> Path:
-    value = optional_env("OBSIDIAN_OUTBOX_ROOT")
-    return Path(value) if value else DEFAULT_OBSIDIAN_OUTBOX_ROOT
-
-
-def obsidian_project_relative(*segments: str) -> str:
-    return "/".join([obsidian_project_root().strip("/"), *segments])
-
-
-def build_obsidian_intake_note(paper: Paper, stamp: str) -> str:
-    authors = ", ".join(paper.authors)
-    date_text = paper.published.strftime("%Y-%m-%d")
-    request_path = obsidian_project_relative(
-        "Agent Dashboard",
-        "Outbox",
-        "Runner",
-        "Requests",
-        f"{stamp}-zotero-deep-read.md",
-    )
-    return "\n".join(
-        [
-            "---",
-            "type: zotero-daily-paper",
-            f"created: {datetime.now(timezone.utc).isoformat()}",
-            "status: outbox",
-            f"zotero_key: {yaml_string(arxiv_id_from_url(paper.url))}",
-            f"title: {yaml_string(paper.title)}",
-            f"authors: {yaml_string(authors)}",
-            f"published: {yaml_string(date_text)}",
-            'source: "arXiv via robotics-paper-mailer"',
-            f"url: {yaml_string(paper.url)}",
-            f"pdf_url: {yaml_string(paper.pdf_url)}",
-            "---",
-            "",
-            f"# {paper.title}",
-            "",
-            "## Abstract",
-            "",
-            paper.abstract or "No abstract captured from arXiv.",
-            "",
-            "## Daily Intake",
-            "",
-            f"- arXiv ID: {arxiv_id_from_url(paper.url)}",
-            f"- Authors: {authors or 'Unknown authors'}",
-            f"- Date: {date_text}",
-            f"- URL: {paper.url}",
-            f"- PDF: {paper.pdf_url or 'No PDF URL'}",
-            f"- Codex request: [[{request_path}]]",
-            f"- Score: {paper.score}",
-            f"- Categories: {', '.join(paper.categories)}",
-            "",
-            "## Next",
-            "",
-            "- [ ] Import this outbox item from Agent Dashboard Today.",
-            "- [ ] Decide whether to run the Codex deep-read request.",
-            "- [ ] Review generated notes before promoting them into the indexed knowledge base.",
-            "",
-        ]
-    )
-
-
-def build_obsidian_codex_request(paper: Paper, stamp: str) -> str:
-    authors = ", ".join(paper.authors)
-    date_text = paper.published.strftime("%Y-%m-%d")
-    intake_path = obsidian_project_relative(
-        "Agent Dashboard",
-        "Outbox",
-        "Zotero Intake",
-        f"{stamp}.md",
-    )
-    prompt = "\n".join(
-        [
-            f"继续这个库，精读这篇论文：{paper.title}",
-            "",
-            "请按当前 Vault 根目录的《论文精读工作流.md》执行。",
-            "先读根目录四个索引页，再定位 note/ 下相关笔记。",
-            "不要把外部知识当作本 Vault 证据；Zotero/arXiv 信息只能作为新文献来源。",
-            "先生成主笔记和同名细读子文件夹草稿；必要时提出索引更新建议，但不要直接改已有索引，除非用户确认。",
-            "",
-            "论文信息：",
-            f"- Title: {paper.title}",
-            f"- Authors: {authors or 'Unknown authors'}",
-            f"- Date: {date_text}",
-            f"- arXiv ID: {arxiv_id_from_url(paper.url)}",
-            f"- URL: {paper.url}",
-            f"- PDF: {paper.pdf_url or 'No PDF URL'}",
-            f"- Categories: {', '.join(paper.categories)}",
-            "",
-            "Abstract:",
-            paper.abstract or "No abstract captured from arXiv.",
-            "",
-            "期望输出：",
-            "- 主笔记：基本信息、一句话摘要、精读导航、研究对象、研究方法、研究结论、关键证据、我的判断。",
-            "- 细读页：方法拆解、实验与消融、我的解读、摘录与线索。",
-            "- 写入位置应与本库现有 note/ 分类一致；如果分类不确定，先写到 Agent Dashboard/Research Tasks 并说明建议分类。",
-        ]
-    )
-    estimated_tokens = max(1, len(prompt) // 4)
-    return "\n".join(
-        [
-            "---",
-            "type: agent-dashboard-runner-request",
-            f"created: {datetime.now(timezone.utc).isoformat()}",
-            "status: outbox",
-            "model: codex",
-            f"estimated_tokens: {estimated_tokens}",
-            "write_policy: confirm-before-existing-files",
-            f"zotero_key: {yaml_string(arxiv_id_from_url(paper.url))}",
-            f"paper_title: {yaml_string(paper.title)}",
-            f"intake_note: {yaml_string(intake_path)}",
-            "---",
-            "",
-            f"# Codex deep read request {stamp}",
-            "",
-            "## Prompt",
-            "",
-            "```text",
-            prompt,
-            "```",
-            "",
-            "## Runner checklist",
-            "",
-            "- [ ] Codex has generated the daily deep-read template.",
-            "- [ ] User reviewed proposed notes before index promotion.",
-            "- [ ] If accepted, paper is discoverable through the project literature index.",
-            "",
-        ]
-    )
-
-
-def write_text_if_missing(path: Path, content: str) -> bool:
-    if path.exists():
-        return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-    return True
-
-
-def write_obsidian_outbox(paper: Paper) -> None:
-    root = obsidian_outbox_root()
-    date_key = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    stamp = f"{date_key}-{arxiv_id_from_url(paper.url)}-{safe_markdown_stem(paper.title)}"
-    project_root = obsidian_project_root().strip("/")
-    intake_path = (
-        root
-        / project_root
-        / "Agent Dashboard"
-        / "Outbox"
-        / "Zotero Intake"
-        / f"{stamp}.md"
-    )
-    request_path = (
-        root
-        / project_root
-        / "Agent Dashboard"
-        / "Outbox"
-        / "Runner"
-        / "Requests"
-        / f"{stamp}-zotero-deep-read.md"
-    )
-    wrote_intake = write_text_if_missing(intake_path, build_obsidian_intake_note(paper, stamp))
-    wrote_request = write_text_if_missing(request_path, build_obsidian_codex_request(paper, stamp))
-    if wrote_intake or wrote_request:
-        print(f"OBSIDIAN_OUTBOX_CREATED: {paper.title}")
-    else:
-        print(f"OBSIDIAN_OUTBOX_EXISTS: {paper.title}")
 
 
 def build_email_body(paper: Paper, attached_pdf: bool) -> str:
@@ -1136,7 +684,7 @@ def send_email(paper: Paper, pdf_path: Path | None) -> None:
         )
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=60) as smtp:
         smtp.login(smtp_user, smtp_code)
         smtp.send_message(msg)
 
@@ -1163,27 +711,21 @@ def send_failure_email(error: Exception) -> None:
     )
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=30) as smtp:
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_SSL_PORT, context=context, timeout=60) as smtp:
         smtp.login(smtp_user, smtp_code)
         smtp.send_message(msg)
 
 
 def main() -> int:
     try:
-        sent_paper_keys = timed_step("load sent history", load_sent_paper_keys)
-        zotero_paper_keys = timed_step("load Zotero history", load_zotero_paper_keys)
-        outbox_paper_keys = timed_step("load Obsidian outbox history", load_obsidian_outbox_paper_keys)
-        known_paper_keys = sent_paper_keys | zotero_paper_keys | outbox_paper_keys
-        paper = timed_step("find best arXiv paper", lambda: find_best_paper(known_paper_keys))
-        pdf_path = timed_step("download PDF", lambda: download_pdf(paper.pdf_url))
-        timed_step("send email", lambda: send_email(paper, pdf_path))
-        timed_step("record sent paper", lambda: record_sent_paper(paper))
-        timed_step("sync to Zotero", lambda: sync_to_zotero(paper, pdf_path))
-        timed_step("write Obsidian outbox", lambda: write_obsidian_outbox(paper))
-        print(f"EMAIL_SENT: {paper.title}")
-        return 0
-    except NoNewPaperError as exc:
-        print(f"NO_NEW_PAPER: {exc}")
+        sent_urls = load_sent_urls()
+        papers = find_best_papers(sent_urls, PAPERS_PER_DAY)
+        for paper in papers:
+            pdf_path = download_pdf(paper.pdf_url)
+            send_email(paper, pdf_path)
+            sync_to_zotero(paper, pdf_path)
+            record_sent_paper(paper)
+            print(f"EMAIL_SENT: {paper.title}")
         return 0
     except Exception as exc:
         send_failure_email(exc)
