@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.00206v1",
+    "title": "Motion Planning for Mobile Manipulators Navigating Doorways via Model Predictive Control",
+    "published": "2026-07-31T18:39:29+00:00",
+    "sent_at": "2026-08-07T04:33:13.830936+00:00",
+    "score": 61
+  },
+  {
     "url": "https://arxiv.org/abs/2608.03051v1",
     "title": "CUDA MPC: A GPU-Native Solver for Model Predictive Control",
     "published": "2026-08-04T03:02:04+00:00",
