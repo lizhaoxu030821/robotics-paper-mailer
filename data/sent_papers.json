@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.03051v1",
+    "title": "CUDA MPC: A GPU-Native Solver for Model Predictive Control",
+    "published": "2026-08-04T03:02:04+00:00",
+    "sent_at": "2026-08-07T02:00:46.869063+00:00",
+    "score": 65
+  },
+  {
     "url": "https://arxiv.org/abs/2608.03116v1",
     "title": "Shooting for Contact: Contact-Implicit Multiple Shooting for Dynamic Motion Retargeting",
     "published": "2026-08-04T04:38:34+00:00",
