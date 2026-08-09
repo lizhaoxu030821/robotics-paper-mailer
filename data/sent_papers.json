@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.05903v1",
+    "title": "Robust-WAM: Bridging Generative Pretraining and Semantic Foresight in World-Action Models",
+    "published": "2026-08-06T11:31:56+00:00",
+    "sent_at": "2026-08-09T03:53:23.156783+00:00",
+    "score": 46
+  },
+  {
     "url": "https://arxiv.org/abs/2608.06375v1",
     "title": "$ω$-0: A Latent Predictive World Action Model for Concurrent Humanoid Loco-Manipulation",
     "published": "2026-08-06T17:59:31+00:00",
