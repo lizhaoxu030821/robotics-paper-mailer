@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.12063v1",
+    "title": "Learning Loco-Manipulation From SMPC Demonstrations With Sparse Offline-to-Online RL",
+    "published": "2026-08-12T13:48:56+00:00",
+    "sent_at": "2026-08-13T04:21:12.176023+00:00",
+    "score": 65
+  },
+  {
     "url": "https://arxiv.org/abs/2608.07746v1",
     "title": "LUCID: Latent-Skill Unified Control via Imagined Dynamics for Long-Horizon Humanoid Loco-Manipulation",
     "published": "2026-08-07T20:26:34+00:00",
