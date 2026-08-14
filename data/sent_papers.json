@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.09272v1",
+    "title": "Real-Time Nonlinear MPC via Sequential Quadratic Programming with Structure-Exploiting ADMM and Interior-Point Methods for Underactuated Double-Pendulum Swing-Up",
+    "published": "2026-08-10T08:28:55+00:00",
+    "sent_at": "2026-08-14T04:19:02.523711+00:00",
+    "score": 64
+  },
+  {
     "url": "https://arxiv.org/abs/2608.12063v1",
     "title": "Learning Loco-Manipulation From SMPC Demonstrations With Sparse Offline-to-Online RL",
     "published": "2026-08-12T13:48:56+00:00",
