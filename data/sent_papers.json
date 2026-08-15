@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.13555v1",
+    "title": "HumanTracker: Towards Comprehensive and Human-Aligned Motion Tracking Benchmark",
+    "published": "2026-08-13T17:59:40+00:00",
+    "sent_at": "2026-08-15T03:05:56.379624+00:00",
+    "score": 51
+  },
+  {
     "url": "https://arxiv.org/abs/2608.09272v1",
     "title": "Real-Time Nonlinear MPC via Sequential Quadratic Programming with Structure-Exploiting ADMM and Interior-Point Methods for Underactuated Double-Pendulum Swing-Up",
     "published": "2026-08-10T08:28:55+00:00",
