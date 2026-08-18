@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.16837v1",
+    "title": "HAF: Adapting Generalist VLAs to Humanoid Whole-Body Loco-manipulation via Hierarchical Action Flow and Spectral Latent RL",
+    "published": "2026-08-17T17:22:33+00:00",
+    "sent_at": "2026-08-18T03:09:21.192980+00:00",
+    "score": 60
+  },
+  {
     "url": "https://arxiv.org/abs/2608.12860v1",
     "title": "HumanoidVLN: A Physics-Grounded Simulator and Benchmark for Vision-Language Navigation Across Diverse Humanoid Embodiments",
     "published": "2026-08-13T06:16:05+00:00",
