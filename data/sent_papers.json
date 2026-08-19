@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.17027v1",
+    "title": "FetchMan: Learning Visual Humanoid Loco-Manipulation Policies from Simulated Experiences",
+    "published": "2026-08-17T18:24:41+00:00",
+    "sent_at": "2026-08-19T03:11:21.081287+00:00",
+    "score": 59
+  },
+  {
     "url": "https://arxiv.org/abs/2608.16837v1",
     "title": "HAF: Adapting Generalist VLAs to Humanoid Whole-Body Loco-manipulation via Hierarchical Action Flow and Spectral Latent RL",
     "published": "2026-08-17T17:22:33+00:00",
