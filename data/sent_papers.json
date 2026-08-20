@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.19182v1",
+    "title": "ADEPT: Accelerating Dexterity via Pre-Training and Post-Training using Reinforcement Learning",
+    "published": "2026-08-19T17:55:06+00:00",
+    "sent_at": "2026-08-20T03:10:18.283254+00:00",
+    "score": 65
+  },
+  {
     "url": "https://arxiv.org/abs/2608.17027v1",
     "title": "FetchMan: Learning Visual Humanoid Loco-Manipulation Policies from Simulated Experiences",
     "published": "2026-08-17T18:24:41+00:00",
