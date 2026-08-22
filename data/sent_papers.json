@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.20114v1",
+    "title": "DECOWAM: Decoupled Whole-Body World-Action Model for Legged Mobile Manipulation",
+    "published": "2026-08-20T14:44:11+00:00",
+    "sent_at": "2026-08-22T03:07:56.687218+00:00",
+    "score": 51
+  },
+  {
     "url": "https://arxiv.org/abs/2608.19443v1",
     "title": "Hybrid Feedback Sampling for Sample-Efficient Model Predictive Control",
     "published": "2026-08-19T20:56:18+00:00",
