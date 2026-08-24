@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.19375v1",
+    "title": "Learning the Right Abstraction: Neural Reduced Dynamics for Complex Robot Control",
+    "published": "2026-08-19T18:41:27+00:00",
+    "sent_at": "2026-08-24T03:17:19.153700+00:00",
+    "score": 44
+  },
+  {
     "url": "https://arxiv.org/abs/2608.19955v1",
     "title": "MILD: Tractable Terrain Modeling for Learning Improved Bipedal Locomotion on Deformable Surfaces",
     "published": "2026-08-20T12:24:34+00:00",
