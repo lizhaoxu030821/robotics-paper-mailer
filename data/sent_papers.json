@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.22278v1",
+    "title": "DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model",
+    "published": "2026-08-23T08:08:39+00:00",
+    "sent_at": "2026-08-26T03:18:18.994890+00:00",
+    "score": 58
+  },
+  {
     "url": "https://arxiv.org/abs/2608.19977v1",
     "title": "Learning Highly Dynamic Skills Transition for Quadruped Jumping Through Constrained Space",
     "published": "2026-08-20T12:50:18+00:00",
