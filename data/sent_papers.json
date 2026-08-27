@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.25405v1",
+    "title": "LAC: Linear and Angular Compliance for Humanoid Whole-body Control",
+    "published": "2026-08-26T06:07:28+00:00",
+    "sent_at": "2026-08-27T12:47:51.010335+00:00",
+    "score": 57
+  },
+  {
     "url": "https://arxiv.org/abs/2608.24217v1",
     "title": "CARO: Contact-Agnostic Residual Observation for Zero-Shot Robust Quadruped Locomotion",
     "published": "2026-08-25T08:23:24+00:00",
