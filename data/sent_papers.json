@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.25666v1",
+    "title": "PRISM: Projection-Integrated Sampling-Based MPC with Bayesian Cost Tuning for Bimanual Manipulation",
+    "published": "2026-08-26T11:47:12+00:00",
+    "sent_at": "2026-08-28T14:21:25.247868+00:00",
+    "score": 60
+  },
+  {
     "url": "https://arxiv.org/abs/2608.25459v1",
     "title": "Towards safe and optimal flight: Viability Kernel MPC for Fully Actuated Multirotor",
     "published": "2026-08-26T07:26:11+00:00",
