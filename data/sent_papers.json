@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.26739v1",
+    "title": "Residual Deep Reinforcement Learning-Based Computed Torque Control for a Cable-Driven Lower-Limb Rehabilitation Robot under Disturbances and Parametric Uncertainties",
+    "published": "2026-08-27T07:29:50+00:00",
+    "sent_at": "2026-08-30T02:00:49.716144+00:00",
+    "score": 51
+  },
+  {
     "url": "https://arxiv.org/abs/2608.18234v2",
     "title": "GigaBrain-WBC-0.5: A Behavior World Model for Robust Whole-Body Control with Environment Interaction",
     "published": "2026-08-18T18:21:36+00:00",
