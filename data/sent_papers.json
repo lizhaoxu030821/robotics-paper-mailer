@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.26821v1",
+    "title": "TemporalFlow-VLA: Learning Physically Grounded Execution History for Long-Horizon Robot Manipulation",
+    "published": "2026-08-27T09:00:56+00:00",
+    "sent_at": "2026-08-30T08:19:13.546829+00:00",
+    "score": 46
+  },
+  {
     "url": "https://arxiv.org/abs/2608.26739v1",
     "title": "Residual Deep Reinforcement Learning-Based Computed Torque Control for a Cable-Driven Lower-Limb Rehabilitation Robot under Disturbances and Parametric Uncertainties",
     "published": "2026-08-27T07:29:50+00:00",
