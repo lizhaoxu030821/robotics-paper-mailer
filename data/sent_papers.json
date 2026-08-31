@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.28570v1",
+    "title": "ChainSplat: A Physics-Inspired Screw-Theoretic Model for Learning Deformable Linear Object Dynamics from Multi-View RGB Videos",
+    "published": "2026-08-28T17:46:38+00:00",
+    "sent_at": "2026-08-31T08:39:32.365340+00:00",
+    "score": 45
+  },
+  {
     "url": "https://arxiv.org/abs/2608.26821v1",
     "title": "TemporalFlow-VLA: Learning Physically Grounded Execution History for Long-Horizon Robot Manipulation",
     "published": "2026-08-27T09:00:56+00:00",
