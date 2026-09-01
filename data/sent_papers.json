@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2608.30883v1",
+    "title": "SleepWalking: Privileged Representation Shaping for End-to-End Blind Locomotion in Legged Robots",
+    "published": "2026-08-31T14:42:03+00:00",
+    "sent_at": "2026-09-01T07:49:46.582026+00:00",
+    "score": 60
+  },
+  {
     "url": "https://arxiv.org/abs/2608.26505v1",
     "title": "Closing the Loop on the Poppy Humanoid: Bipedal Locomotion with Linear-Quadratic Control and Learned Cost Functions",
     "published": "2026-08-27T01:03:45+00:00",
