@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.01518v1",
+    "title": "A System for Fast, Resilient, and Adaptable Loco-Manipulation Behaviors on Humanoid Robots",
+    "published": "2026-09-01T16:47:00+00:00",
+    "sent_at": "2026-09-02T07:06:45.746030+00:00",
+    "score": 60
+  },
+  {
     "url": "https://arxiv.org/abs/2608.30883v1",
     "title": "SleepWalking: Privileged Representation Shaping for End-to-End Blind Locomotion in Legged Robots",
     "published": "2026-08-31T14:42:03+00:00",
