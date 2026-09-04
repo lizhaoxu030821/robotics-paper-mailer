@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.02079v1",
+    "title": "Koopman-Based Robust Model Predictive Control for Nonlinear Systems with Stochastic Intermittent Measurements",
+    "published": "2026-09-02T04:08:49+00:00",
+    "sent_at": "2026-09-04T07:14:31.304716+00:00",
+    "score": 65
+  },
+  {
     "url": "https://arxiv.org/abs/2609.01061v1",
     "title": "Accelerating Reinforcement Learning via MPC Solver-Gradient Guidance for Weights-varying MPC",
     "published": "2026-09-01T10:55:18+00:00",
