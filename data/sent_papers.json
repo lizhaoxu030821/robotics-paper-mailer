@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.05206v1",
+    "title": "Morphology and actuation as inductive biases in robotic hand manipulation",
+    "published": "2026-09-04T14:38:13+00:00",
+    "sent_at": "2026-09-07T07:20:08.164114+00:00",
+    "score": 43
+  },
+  {
     "url": "https://arxiv.org/abs/2609.02811v1",
     "title": "Do Better Imagined Rollouts Mean Better Robot Control? A Controlled Study of World-Model Evaluation Under Feedback",
     "published": "2026-09-02T16:52:30+00:00",
