@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.07933v1",
+    "title": "SPOT: Spatial Perception-Oriented Long-Horizon Humanoid Teleoperation",
+    "published": "2026-09-07T19:46:56+00:00",
+    "sent_at": "2026-09-09T07:23:24.692738+00:00",
+    "score": 59
+  },
+  {
     "url": "https://arxiv.org/abs/2609.05994v1",
     "title": "GLoRI: Closed-Loop Whole-Body Tracking with Global-Local Reference Interaction for Humanoid Loco-Manipulation",
     "published": "2026-09-05T09:38:28+00:00",
