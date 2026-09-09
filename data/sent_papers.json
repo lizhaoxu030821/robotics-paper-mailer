@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.05994v1",
+    "title": "GLoRI: Closed-Loop Whole-Body Tracking with Global-Local Reference Interaction for Humanoid Loco-Manipulation",
+    "published": "2026-09-05T09:38:28+00:00",
+    "sent_at": "2026-09-09T02:00:56.008262+00:00",
+    "score": 57
+  },
+  {
     "url": "https://arxiv.org/abs/2609.02222v1",
     "title": "FOCUS: Foot Observation Confidence for Robust Humanoid Proprioceptive Odometry",
     "published": "2026-09-02T07:34:55+00:00",
