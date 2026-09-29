@@ -1,9 +1,6 @@
 name: Daily Robotics Paper Email
 
 on:
-  schedule:
-    # GitHub Actions cron uses UTC. 02:15 UTC is 10:15 in China Standard Time.
-    - cron: "15 2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,7 +9,7 @@ permissions:
 jobs:
   send-paper:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,14 +27,12 @@ jobs:
           ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
           ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
           ZOTERO_COLLECTION_NAME: ${{ secrets.ZOTERO_COLLECTION_NAME }}
-          OBSIDIAN_OUTBOX_ROOT: obsidian-outbox
-          OBSIDIAN_PROJECT_ROOT: ResearchVault/legged-robot-motion-control
         run: python scripts/send_daily_robotics_paper.py
 
-      - name: Commit sent paper history and Obsidian outbox
+      - name: Commit sent paper history
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/sent_papers.json obsidian-outbox
-          git diff --cached --quiet || git commit -m "Record sent paper and Obsidian outbox"
+          git add data/sent_papers.json
+          git diff --cached --quiet || git commit -m "Record sent paper"
           git push
