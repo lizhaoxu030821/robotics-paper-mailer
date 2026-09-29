@@ -1,5 +1,12 @@
 # 版本更新记录
 
+## v1.3.3
+
+- 修复自动更新后立即重启时出现 `Failed to load Python DLL` 的问题。
+- 更新器现在会等待 PyInstaller 父进程和应用进程全部退出，再启动新版本。
+- 覆盖 EXE 时最多自动重试 5 次，减少杀毒软件或临时文件占用造成的失败。
+- GitHub Release 使用独立中文更新说明，不再只显示英文比较链接。
+
 ## v1.3.2
 
 - 修复部分 Windows 电脑启动时报错 `No time zone found with key Asia/Shanghai`。
