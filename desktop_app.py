@@ -36,7 +36,7 @@ from tkinter import BooleanVar, Canvas, Tk, StringVar, Text, Toplevel, messagebo
 
 
 APP_NAME = "机器人论文云端助手"
-APP_VERSION = "1.3.5"
+APP_VERSION = "1.3.6"
 UPDATE_REPOSITORY = "lizhaoxu030821/robotics-paper-mailer"
 UPDATE_API_URL = f"https://api.github.com/repos/{UPDATE_REPOSITORY}/releases/latest"
 UPDATE_ASSET_NAME = "robotics-paper-mailer.exe"
@@ -228,6 +228,7 @@ class PaperMailerApp:
         style.configure("Card.TFrame", background="#ffffff")
         style.configure("TLabel", background="#edf3f1", foreground="#173a36", font=("Microsoft YaHei UI", 10))
         style.configure("Title.TLabel", background="#edf3f1", foreground="#123d37", font=("Microsoft YaHei UI", 24, "bold"))
+        style.configure("Version.TLabel", background="#dcece7", foreground="#0b7a64", font=("Microsoft YaHei UI", 9, "bold"), padding=(9, 4))
         style.configure("Subtitle.TLabel", background="#edf3f1", foreground="#50726b", font=("Microsoft YaHei UI", 10))
         style.configure("CardTitle.TLabel", background="#ffffff", foreground="#123d37", font=("Microsoft YaHei UI", 13, "bold"))
         style.configure("CardText.TLabel", background="#ffffff", foreground="#45625d", font=("Microsoft YaHei UI", 10))
@@ -299,6 +300,7 @@ class PaperMailerApp:
         title_row = ttk.Frame(header)
         title_row.pack(fill="x")
         ttk.Label(title_row, text=APP_NAME, style="Title.TLabel").pack(side="left")
+        ttk.Label(title_row, text=f"v{APP_VERSION}", style="Version.TLabel").pack(side="left", padx=(12, 0), pady=(8, 0))
         self.github_account_button = tk.Button(
             title_row,
             textvariable=self.github_account_text,
