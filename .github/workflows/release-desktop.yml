@@ -24,7 +24,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install build dependencies
-        run: python -m pip install pyinstaller pynacl tzdata
+        run: python -m pip install pyinstaller pynacl
 
       - name: Validate Python sources
         run: python -m py_compile desktop_app.py scripts/send_daily_robotics_paper.py
