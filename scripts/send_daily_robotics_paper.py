@@ -18,10 +18,9 @@ import urllib.request
 import urllib.error
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
@@ -30,6 +29,7 @@ SMTP_HOST = "smtp.qq.com"
 SMTP_SSL_PORT = 465
 MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
 HISTORY_PATH = Path("data") / "sent_papers.json"
+BEIJING_TIMEZONE = timezone(timedelta(hours=8), name="Asia/Shanghai")
 
 TOPIC_CATALOG = {
     "motion_control": {
@@ -97,7 +97,7 @@ def load_topic_config() -> tuple[dict[str, object], list[str], dict[str, int], l
 
     selected = config.get("selected_topics", DEFAULT_TOPIC_IDS)
     weekday_topics = config.get("weekday_topics", {})
-    weekday = str(datetime.now(ZoneInfo("Asia/Shanghai")).weekday())
+    weekday = str(datetime.now(BEIJING_TIMEZONE).weekday())
     rotation_order = config.get("weekly_rotation_order", [])
     rotation_ids = [topic_id for topic_id in rotation_order if topic_id in TOPIC_CATALOG] if isinstance(rotation_order, list) else []
     if rotation_ids:
