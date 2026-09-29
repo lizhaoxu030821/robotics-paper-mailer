@@ -36,7 +36,7 @@ from tkinter import BooleanVar, Canvas, Tk, StringVar, Text, Toplevel, messagebo
 
 
 APP_NAME = "机器人论文云端助手"
-APP_VERSION = "1.3.4"
+APP_VERSION = "1.3.5"
 UPDATE_REPOSITORY = "lizhaoxu030821/robotics-paper-mailer"
 UPDATE_API_URL = f"https://api.github.com/repos/{UPDATE_REPOSITORY}/releases/latest"
 UPDATE_ASSET_NAME = "robotics-paper-mailer.exe"
@@ -1160,6 +1160,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: daily-paper-${{{{ github.repository }}}}
+  cancel-in-progress: false
+
 jobs:
   send-paper:
     runs-on: ubuntu-latest
@@ -1184,7 +1188,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/sent_papers.json
           git diff --cached --quiet || git commit -m "Record sent paper"
-          git push
+          if git diff HEAD^ --quiet -- data/sent_papers.json 2>/dev/null; then
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            git pull --rebase origin "$GITHUB_REF_NAME" && git push && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 3))
+          done
+          echo "Failed to push sent-paper history after 3 attempts."
+          exit 1
 '''.encode("utf-8")
 
     def _github_json(self, token: str, method: str, endpoint: str, payload: object | None = None) -> object:
