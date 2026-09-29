@@ -5,7 +5,7 @@ a = Analysis(
     ['desktop_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('scripts\\send_daily_robotics_paper.py', 'scripts'), ('FEATURES.md', '.'), ('RELEASING.md', '.'), ('ROADMAP.md', '.'), ('CHANGELOG.md', '.')],
+    datas=[('scripts\\send_daily_robotics_paper.py', 'scripts'), ('FEATURES.md', '.'), ('RELEASING.md', '.'), ('ROADMAP.md', '.'), ('CHANGELOG.md', '.'), ('RELEASE_NOTES.md', '.')],
     hiddenimports=['_cffi_backend'],
     hookspath=[],
     hooksconfig={},
