@@ -28,7 +28,9 @@ exe = EXE(
     strip=False,
     upx=True,
     upx_exclude=[],
-    runtime_tmpdir=None,
+    # Keep one-file extraction beside the app instead of Windows TEMP. Some
+    # endpoint-security policies block loading Python DLLs from %TEMP%\_MEI*.
+    runtime_tmpdir='.',
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
