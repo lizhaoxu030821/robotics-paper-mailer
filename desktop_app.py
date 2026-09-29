@@ -36,7 +36,7 @@ from tkinter import BooleanVar, Canvas, Tk, StringVar, Text, Toplevel, messagebo
 
 
 APP_NAME = "机器人论文云端助手"
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.3.3"
 UPDATE_REPOSITORY = "lizhaoxu030821/robotics-paper-mailer"
 UPDATE_API_URL = f"https://api.github.com/repos/{UPDATE_REPOSITORY}/releases/latest"
 UPDATE_ASSET_NAME = "robotics-paper-mailer.exe"
@@ -1762,11 +1762,26 @@ jobs:
         quote = lambda value: str(value).replace("'", "''")
         updater = "\n".join([
             f"$targetPid = {os.getpid()}",
+            f"$bootloaderPid = {os.getppid()}",
             "Wait-Process -Id $targetPid -ErrorAction SilentlyContinue",
+            "if ($bootloaderPid -ne $targetPid) { Wait-Process -Id $bootloaderPid -ErrorAction SilentlyContinue }",
+            "Start-Sleep -Seconds 2",
             "$ErrorActionPreference = 'Stop'",
             "try {",
             f"  Copy-Item -LiteralPath '{quote(target)}' -Destination '{quote(backup)}' -Force",
-            f"  Copy-Item -LiteralPath '{quote(source)}' -Destination '{quote(target)}' -Force",
+            "  $copied = $false",
+            "  for ($attempt = 1; $attempt -le 5; $attempt++) {",
+            "    try {",
+            f"      Copy-Item -LiteralPath '{quote(source)}' -Destination '{quote(target)}' -Force",
+            "      $copied = $true",
+            "      break",
+            "    } catch {",
+            "      if ($attempt -eq 5) { throw }",
+            "      Start-Sleep -Seconds 2",
+            "    }",
+            "  }",
+            "  if (-not $copied) { throw 'Unable to replace application executable.' }",
+            "  Start-Sleep -Seconds 2",
             f"  Start-Process -FilePath '{quote(target)}'",
             f"  Remove-Item -LiteralPath '{quote(source)}' -Force -ErrorAction SilentlyContinue",
             "} catch {",
