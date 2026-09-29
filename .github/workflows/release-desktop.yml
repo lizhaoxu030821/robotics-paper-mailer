@@ -46,4 +46,5 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: 机器人论文云端助手 ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
+          overwrite_files: true
           files: 机器人论文云端助手.exe
