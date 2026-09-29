@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.26989v1",
+    "title": "Spiderbot: An Open-Source Energy-Efficient Hexapod with Passive Gravity Compensation",
+    "published": "2026-09-22T19:30:39+00:00",
+    "sent_at": "2026-09-29T02:00:56.316889+00:00",
+    "score": 67
+  },
+  {
     "url": "https://arxiv.org/abs/2609.16644v1",
     "title": "WholeBodyWAM: Generalizing Pre-trained World-Action Priors to Humanoid Loco-Manipulation via WBC-Grounded Coordination",
     "published": "2026-09-15T05:03:49+00:00",
