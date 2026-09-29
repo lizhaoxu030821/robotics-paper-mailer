@@ -1,5 +1,11 @@
 # 版本更新记录
 
+## v1.3.2
+
+- 修复部分 Windows 电脑启动时报错 `No time zone found with key Asia/Shanghai`。
+- 北京时间改用 Python 内置固定 `UTC+8`，不再依赖外部 `tzdata` 数据包。
+- 云端发布包移除不必要的时区依赖，减小不同构建环境之间的差异。
+
 ## v1.3.1
 
 - 启用官方 GitHub Releases 自动更新发布链路。
