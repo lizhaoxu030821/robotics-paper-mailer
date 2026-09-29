@@ -1650,13 +1650,17 @@ jobs:
 
     def _check_for_updates_worker(self) -> None:
         try:
+            headers = {
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": f"cloud-robotics-paper-mailer/{APP_VERSION}",
+            }
+            token = self._load_github_token()
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
             request = urllib.request.Request(
                 UPDATE_API_URL,
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                    "User-Agent": f"cloud-robotics-paper-mailer/{APP_VERSION}",
-                },
+                headers=headers,
             )
             with urllib.request.urlopen(request, timeout=20) as response:
                 release = json.loads(response.read().decode("utf-8"))
@@ -1683,6 +1687,8 @@ jobs:
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 self.events.put(("update_unpublished", ""))
+            elif exc.code == 403:
+                self.events.put(("update_error", "GitHub 暂时限制了更新检查请求。请稍后重试；登录 GitHub 后可提高检查限额。"))
             else:
                 self.events.put(("update_error", f"检查更新失败（HTTP {exc.code}）。"))
         except Exception as exc:
