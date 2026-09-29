@@ -29,7 +29,6 @@ import urllib.parse
 import urllib.request
 import webbrowser
 import xml.etree.ElementTree
-import zoneinfo
 from nacl.public import PublicKey, SealedBox
 from pathlib import Path
 import tkinter as tk
@@ -37,7 +36,7 @@ from tkinter import BooleanVar, Canvas, Tk, StringVar, Text, Toplevel, messagebo
 
 
 APP_NAME = "机器人论文云端助手"
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.2"
 UPDATE_REPOSITORY = "lizhaoxu030821/robotics-paper-mailer"
 UPDATE_API_URL = f"https://api.github.com/repos/{UPDATE_REPOSITORY}/releases/latest"
 UPDATE_ASSET_NAME = "robotics-paper-mailer.exe"
