@@ -8,7 +8,7 @@
 2. 将本次代码、`FEATURES.md`、spec 文件和 `.github/workflows/release-desktop.yml` 提交到官方仓库的 `main` 分支。
 3. 在 GitHub 仓库进入 `Actions -> Build Desktop Release -> Run workflow`。
 4. 输入与软件版本一致的标签，例如 `v1.4.0`，运行工作流。
-5. 工作流会在 Windows Runner 上打包并验证 EXE，然后创建 GitHub Release，附件名称固定为 `机器人论文云端助手.exe`。
+5. 工作流会在 Windows Runner 上打包并检查 EXE，然后创建 GitHub Release，附件名称固定为 `robotics-paper-mailer.exe`。
 6. 打开 Release 页面，检查更新说明和附件后再通知用户。
 
 也可以通过推送 `v*` Git 标签触发同一工作流。
@@ -26,6 +26,6 @@
 
 - `APP_VERSION` 与 Release 标签必须一致，例如 `APP_VERSION = "1.4.0"` 对应 `v1.4.0`。
 - Release 不能是 Draft 或 Pre-release，否则 `/releases/latest` 不会将其作为正式最新版。
-- 附件最好保持名称 `机器人论文云端助手.exe`。客户端找不到该名称时会回退选择第一个 `.exe` 文件。
+- 附件应保持名称 `robotics-paper-mailer.exe`。客户端找不到该名称时会回退选择第一个 `.exe` 文件，以兼容早期版本。
 - 不要在朋友的个人论文仓库发布桌面软件版本；更新只使用固定官方仓库。
 - 发布前应运行语法检查、内置脚本验证和一次界面启动测试。
