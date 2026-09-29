@@ -40,7 +40,7 @@ APP_NAME = "机器人论文云端助手"
 APP_VERSION = "1.3.1"
 UPDATE_REPOSITORY = "lizhaoxu030821/robotics-paper-mailer"
 UPDATE_API_URL = f"https://api.github.com/repos/{UPDATE_REPOSITORY}/releases/latest"
-UPDATE_ASSET_NAME = "机器人论文云端助手.exe"
+UPDATE_ASSET_NAME = "robotics-paper-mailer.exe"
 DEFAULT_SETTINGS = {
     "owner": "lizhaoxu030821",
     "repository": "robotics-paper-mailer",
