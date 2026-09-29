@@ -1,0 +1,47 @@
+name: Build Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v1.3.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build dependencies
+        run: python -m pip install pyinstaller pynacl
+
+      - name: Build Windows executable
+        run: python -m PyInstaller --noconfirm --clean "机器人论文云端助手.spec"
+
+      - name: Verify bundled application
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -LiteralPath dist -Filter '*.exe' | Select-Object -First 1
+          if ($null -eq $exe) { throw 'Built EXE not found.' }
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList '--verify-bundled-script' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Bundled verification failed: $($process.ExitCode)" }
+          Copy-Item -LiteralPath $exe.FullName -Destination '机器人论文云端助手.exe' -Force
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: 机器人论文云端助手 ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: 机器人论文云端助手.exe
