@@ -38,7 +38,7 @@ jobs:
           $exe = Get-ChildItem -LiteralPath dist -Filter '*.exe' | Select-Object -First 1
           if ($null -eq $exe) { throw 'Built EXE not found.' }
           if ($exe.Length -lt 1MB) { throw "Built EXE is unexpectedly small: $($exe.Length) bytes" }
-          Copy-Item -LiteralPath $exe.FullName -Destination '机器人论文云端助手.exe' -Force
+          Copy-Item -LiteralPath $exe.FullName -Destination 'robotics-paper-mailer.exe' -Force
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -47,4 +47,4 @@ jobs:
           name: 机器人论文云端助手 ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
           overwrite_files: true
-          files: 机器人论文云端助手.exe
+          files: robotics-paper-mailer.exe
