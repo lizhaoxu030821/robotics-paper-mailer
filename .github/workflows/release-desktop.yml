@@ -45,6 +45,6 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: 机器人论文云端助手 ${{ github.event.inputs.tag || github.ref_name }}
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
           overwrite_files: true
           files: robotics-paper-mailer.exe
