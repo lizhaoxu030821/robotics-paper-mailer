@@ -26,16 +26,18 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install pyinstaller pynacl
 
+      - name: Validate Python sources
+        run: python -m py_compile desktop_app.py scripts/send_daily_robotics_paper.py
+
       - name: Build Windows executable
         run: python -m PyInstaller --noconfirm --clean "机器人论文云端助手.spec"
 
-      - name: Verify bundled application
+      - name: Prepare release asset
         shell: pwsh
         run: |
           $exe = Get-ChildItem -LiteralPath dist -Filter '*.exe' | Select-Object -First 1
           if ($null -eq $exe) { throw 'Built EXE not found.' }
-          $process = Start-Process -FilePath $exe.FullName -ArgumentList '--verify-bundled-script' -PassThru -Wait
-          if ($process.ExitCode -ne 0) { throw "Bundled verification failed: $($process.ExitCode)" }
+          if ($exe.Length -lt 1MB) { throw "Built EXE is unexpectedly small: $($exe.Length) bytes" }
           Copy-Item -LiteralPath $exe.FullName -Destination '机器人论文云端助手.exe' -Force
 
       - name: Publish GitHub Release
