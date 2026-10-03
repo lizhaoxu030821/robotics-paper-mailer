@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.00438v1",
+    "title": "Towards a General Humanoid Loco-Manipulation Model via Egocentric Whole-Body Human Data Pretraining",
+    "published": "2026-09-30T17:25:16+00:00",
+    "sent_at": "2026-10-03T02:01:25.654914+00:00",
+    "score": 99
+  },
+  {
     "url": "https://arxiv.org/abs/2610.01612v1",
     "title": "ReCo: Response-Consistent Locomotion with Policy-Aware MPC for Legged Manipulation",
     "published": "2026-10-01T12:51:34+00:00",
