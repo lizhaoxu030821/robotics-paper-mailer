@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2609.38709v1",
+    "title": "CEER2: Directional and Tunable End-Effector and Root Compliance for Humanoid Loco-Manipulation",
+    "published": "2026-09-30T00:48:09+00:00",
+    "sent_at": "2026-10-05T02:01:30.751805+00:00",
+    "score": 95
+  },
+  {
     "url": "https://arxiv.org/abs/2609.36575v1",
     "title": "EquivDP3: A SIM(3)-Invariant Point-Cloud Encoder for Data-Efficient Humanoid Loco-Manipulation",
     "published": "2026-09-29T02:54:01+00:00",
