@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.12465v1",
+    "title": "A Balanced Data Diet: Addressing the Exploration Bottleneck in Mega-Scale RL for Robot Control",
+    "published": "2026-10-08T17:59:50+00:00",
+    "sent_at": "2026-10-11T02:01:16.423845+00:00",
+    "score": 98
+  },
+  {
     "url": "https://arxiv.org/abs/2610.10297v1",
     "title": "Energy-Efficient Gait Adaptation via Hierarchical Reinforcement Learning for Quadrupedal Locomotion Across Diverse Terrains",
     "published": "2026-10-07T15:53:35+00:00",
