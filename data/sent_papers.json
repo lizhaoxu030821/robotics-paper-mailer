@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.09479v1",
+    "title": "Precise SE(3) End-Effector Tracking in Whole-Body Humanoid Control",
+    "published": "2026-10-07T05:34:26+00:00",
+    "sent_at": "2026-10-12T02:01:57.513014+00:00",
+    "score": 95
+  },
+  {
     "url": "https://arxiv.org/abs/2610.12465v1",
     "title": "A Balanced Data Diet: Addressing the Exploration Bottleneck in Mega-Scale RL for Robot Control",
     "published": "2026-10-08T17:59:50+00:00",
