@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.11283v1",
+    "title": "Being-M0.7: A Latent World-Action Model for Humanoid Robots",
+    "published": "2026-10-08T05:49:24+00:00",
+    "sent_at": "2026-10-13T02:09:34.059558+00:00",
+    "score": 93
+  },
+  {
     "url": "https://arxiv.org/abs/2610.09479v1",
     "title": "Precise SE(3) End-Effector Tracking in Whole-Body Humanoid Control",
     "published": "2026-10-07T05:34:26+00:00",
