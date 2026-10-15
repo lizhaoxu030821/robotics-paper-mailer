@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.19627v1",
+    "title": "E2DRL: End-to-End Differentiable Reinforcement Learning for 3D Obstacle Avoidance in Quadruped Robots",
+    "published": "2026-10-14T05:54:25+00:00",
+    "sent_at": "2026-10-15T02:01:53.295712+00:00",
+    "score": 105
+  },
+  {
     "url": "https://arxiv.org/abs/2610.15486v1",
     "title": "Learning Safety-Constrained Whole-Body Loco-Manipulation for Lunar Surface Operations",
     "published": "2026-10-11T09:38:47+00:00",
