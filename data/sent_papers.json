@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.20968v1",
+    "title": "SOMA: Stack-of-Objects Manipulation using a Quadruped Robot",
+    "published": "2026-10-14T21:43:14+00:00",
+    "sent_at": "2026-10-16T06:47:55.602821+00:00",
+    "score": 98
+  },
+  {
     "url": "https://arxiv.org/abs/2610.19627v1",
     "title": "E2DRL: End-to-End Differentiable Reinforcement Learning for 3D Obstacle Avoidance in Quadruped Robots",
     "published": "2026-10-14T05:54:25+00:00",
