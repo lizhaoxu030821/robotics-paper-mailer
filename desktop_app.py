@@ -44,7 +44,7 @@ DEFAULT_SETTINGS = {
     "owner": "lizhaoxu030821",
     "repository": "robotics-paper-mailer",
     "workflow": "daily-paper.yml",
-    "schedule": "每天 09:00（北京时间，由 GitHub Actions 触发）",
+    "schedule": "每天 10:00（北京时间，由 GitHub Actions 触发）",
     "recipient": "2365318481@qq.com",
     # Public identifier of the user's GitHub OAuth App. It is not a secret.
     "github_oauth_client_id": "Ov23liStnNMd1qYsoqRR",
