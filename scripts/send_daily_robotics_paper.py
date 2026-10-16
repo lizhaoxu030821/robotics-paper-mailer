@@ -290,6 +290,26 @@ def load_sent_urls() -> set[str]:
     return {record.get("url", "") for record in records if record.get("url")}
 
 
+def already_sent_today() -> bool:
+    if not HISTORY_PATH.exists():
+        return False
+    try:
+        records = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    today = datetime.now(BEIJING_TIMEZONE).date()
+    for record in records if isinstance(records, list) else []:
+        sent_at = str(record.get("sent_at") or "") if isinstance(record, dict) else ""
+        if not sent_at:
+            continue
+        try:
+            if parse_datetime(sent_at).astimezone(BEIJING_TIMEZONE).date() == today:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def record_sent_paper(paper: Paper) -> None:
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     records = []
@@ -507,6 +527,30 @@ def zotero_create_link_attachment(
     return first["key"]
 
 
+def zotero_ensure_link_attachment(
+    api_key: str, user_id: str, parent_key: str, pdf_url: str, children: list[object]
+) -> None:
+    for child in children:
+        data = child.get("data", {}) if isinstance(child, dict) else {}
+        if data.get("linkMode") == "linked_url" and data.get("url") == pdf_url:
+            return
+    attachment = {
+        "itemType": "attachment",
+        "linkMode": "linked_url",
+        "title": "arXiv PDF",
+        "accessDate": email.utils.format_datetime(datetime.now(timezone.utc)),
+        "url": pdf_url,
+        "parentItem": parent_key,
+        "contentType": "application/pdf",
+    }
+    _, response, _ = zotero_json_request(
+        "POST", f"/users/{user_id}/items", api_key=api_key, payload=[attachment]
+    )
+    successful = response.get("successful", {}) if isinstance(response, dict) else {}
+    if not successful:
+        raise RuntimeError(f"Zotero linked PDF attachment creation failed: {response}")
+
+
 def zotero_create_imported_attachment(
     api_key: str,
     user_id: str,
@@ -535,8 +579,32 @@ def zotero_create_imported_attachment(
         raise RuntimeError(f"Zotero imported attachment creation failed: {response}")
     first = successful.get("0") or next(iter(successful.values()))
     attachment_key = first["key"]
-    zotero_upload_attachment_file(api_key, user_id, attachment_key, pdf_path, filename, content_type)
+    try:
+        zotero_upload_attachment_file(api_key, user_id, attachment_key, pdf_path, filename, content_type)
+    except Exception:
+        zotero_delete_item(api_key, user_id, attachment_key)
+        raise
     return attachment_key
+
+
+def zotero_delete_item(api_key: str, user_id: str, item_key: str) -> None:
+    """Delete an incomplete attachment without masking the original upload error."""
+    try:
+        _, item, _ = zotero_json_request(
+            "GET", f"/users/{user_id}/items/{item_key}", api_key=api_key
+        )
+        data = item.get("data", {}) if isinstance(item, dict) else {}
+        version = data.get("version")
+        if version is None:
+            return
+        zotero_request(
+            "DELETE",
+            f"/users/{user_id}/items/{item_key}",
+            api_key=api_key,
+            headers={"If-Unmodified-Since-Version": str(version)},
+        )
+    except Exception as exc:
+        print(f"Zotero incomplete attachment cleanup failed: {exc}", file=sys.stderr)
 
 
 def zotero_upload_attachment_file(
@@ -567,8 +635,10 @@ def zotero_upload_attachment_file(
             "If-None-Match": "*",
         },
     )
+    if status not in (200, 204):
+        raise RuntimeError(f"Zotero upload authorization returned HTTP {status}.")
     if status == 204:
-        return
+        raise RuntimeError("Zotero returned an unexpected empty upload authorization response.")
     upload_info = json.loads(raw.decode("utf-8"))
     if not upload_info.get("exists"):
         upload_url = upload_info["url"]
@@ -579,18 +649,29 @@ def zotero_upload_attachment_file(
             headers={"Content-Type": upload_info["contentType"]},
             method="POST",
         )
-        with urllib.request.urlopen(upload_req, timeout=120) as response:
+        with urllib.request.urlopen(upload_req, timeout=180) as response:
             response.read()
-    zotero_request(
-        "POST",
-        f"/users/{user_id}/items/{attachment_key}/file",
-        api_key=api_key,
-        data=urllib.parse.urlencode({"upload": upload_info["uploadKey"]}).encode("utf-8"),
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "If-None-Match": "*",
-        },
+            if response.status not in (200, 201, 204):
+                raise RuntimeError(f"Zotero storage upload returned HTTP {response.status}.")
+        register_status, _, _ = zotero_request(
+            "POST",
+            f"/users/{user_id}/items/{attachment_key}/file",
+            api_key=api_key,
+            data=urllib.parse.urlencode({"upload": upload_info["uploadKey"]}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "If-None-Match": "*",
+            },
+        )
+        if register_status != 204:
+            raise RuntimeError(f"Zotero upload registration returned HTTP {register_status}.")
+
+    _, attachment, _ = zotero_json_request(
+        "GET", f"/users/{user_id}/items/{attachment_key}", api_key=api_key
     )
+    attachment_data = attachment.get("data", {}) if isinstance(attachment, dict) else {}
+    if str(attachment_data.get("md5") or "").lower() != md5.lower():
+        raise RuntimeError("Zotero attachment metadata did not confirm the uploaded PDF.")
 
 
 def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
@@ -614,6 +695,65 @@ def sync_to_zotero(paper: Paper, pdf_path: Path | None) -> None:
         print(f"ZOTERO_SYNCED: {paper.title}")
     except Exception as exc:
         print(f"Zotero sync failed: {exc}", file=sys.stderr)
+
+
+def zotero_repair_missing_pdfs(limit: int = 50) -> int:
+    api_key = require_env("ZOTERO_API_KEY")
+    user_id = require_env("ZOTERO_USER_ID")
+    collection_name = require_env("ZOTERO_COLLECTION_NAME")
+    collection_key = zotero_find_collection_key(api_key, user_id, collection_name)
+    params = urllib.parse.urlencode({"limit": min(100, max(1, limit)), "sort": "dateAdded", "direction": "desc"})
+    _, parents, _ = zotero_json_request(
+        "GET",
+        f"/users/{user_id}/collections/{collection_key}/items/top?{params}",
+        api_key=api_key,
+    )
+    if not isinstance(parents, list):
+        raise RuntimeError("Unexpected Zotero collection items response.")
+
+    repaired = 0
+    failed = 0
+    for parent in parents:
+        parent_data = parent.get("data", {}) if isinstance(parent, dict) else {}
+        parent_key = str(parent_data.get("key") or "")
+        source_url = str(parent_data.get("url") or "")
+        if not parent_key or "arxiv.org/abs/" not in source_url:
+            continue
+        arxiv_id = source_url.split("/abs/", 1)[1].split("?", 1)[0]
+        pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+        _, children_raw, _ = zotero_json_request(
+            "GET", f"/users/{user_id}/items/{parent_key}/children?limit=100", api_key=api_key
+        )
+        children = children_raw if isinstance(children_raw, list) else []
+        broken = []
+        for child in children:
+            data = child.get("data", {}) if isinstance(child, dict) else {}
+            if data.get("linkMode") == "imported_file" and not data.get("md5"):
+                broken.append(data)
+        if not broken:
+            continue
+
+        pdf_path = download_pdf(pdf_url)
+        if pdf_path is None:
+            failed += 1
+            print(f"ZOTERO_REPAIR_FAILED: PDF download failed for {source_url}", file=sys.stderr)
+            continue
+        for attachment in broken:
+            attachment_key = str(attachment.get("key") or "")
+            filename = str(attachment.get("filename") or safe_filename(arxiv_id))
+            try:
+                zotero_upload_attachment_file(
+                    api_key, user_id, attachment_key, pdf_path, filename, "application/pdf"
+                )
+                repaired += 1
+                print(f"ZOTERO_REPAIRED: {parent_data.get('title', source_url)}")
+            except Exception as exc:
+                failed += 1
+                zotero_delete_item(api_key, user_id, attachment_key)
+                zotero_ensure_link_attachment(api_key, user_id, parent_key, pdf_url, children)
+                print(f"ZOTERO_REPAIR_FAILED: {source_url}: {exc}", file=sys.stderr)
+    print(f"ZOTERO_REPAIR_SUMMARY: repaired={repaired}, failed={failed}")
+    return 0 if failed == 0 else 2
 
 
 def build_email_body(paper: Paper, attached_pdf: bool) -> str:
@@ -718,6 +858,12 @@ def send_failure_email(error: Exception) -> None:
 
 def main() -> int:
     try:
+        if optional_env("ZOTERO_REPAIR_MISSING_PDFS").lower() in {"1", "true", "yes"}:
+            return zotero_repair_missing_pdfs()
+        force_send = optional_env("FORCE_SEND").lower() in {"1", "true", "yes"}
+        if already_sent_today() and not force_send:
+            print("DAILY_SEND_SKIPPED: A paper was already sent today in Beijing time.")
+            return 0
         sent_urls = load_sent_urls()
         papers = find_best_papers(sent_urls, PAPERS_PER_DAY)
         for paper in papers:
