@@ -36,7 +36,7 @@ from tkinter import BooleanVar, Canvas, Tk, StringVar, Text, Toplevel, messagebo
 
 
 APP_NAME = "机器人论文云端助手"
-APP_VERSION = "1.3.6"
+APP_VERSION = "1.3.8"
 UPDATE_REPOSITORY = "lizhaoxu030821/robotics-paper-mailer"
 UPDATE_API_URL = f"https://api.github.com/repos/{UPDATE_REPOSITORY}/releases/latest"
 UPDATE_ASSET_NAME = "robotics-paper-mailer.exe"
@@ -114,12 +114,20 @@ def save_settings(settings: dict[str, str]) -> None:
 
 
 class _DataBlob(ctypes.Structure):
-    _fields_ = [("cbData", ctypes.wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_byte))]
+    _fields_ = [("cbData", ctypes.wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
 
 
-def _data_blob(value: bytes) -> tuple[_DataBlob, ctypes.Array[ctypes.c_char]]:
-    buffer = ctypes.create_string_buffer(value)
-    return _DataBlob(len(value), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_byte))), buffer
+def _data_blob(value: bytes) -> tuple[_DataBlob, ctypes.Array[ctypes.c_ubyte]]:
+    buffer = (ctypes.c_ubyte * len(value)).from_buffer_copy(value)
+    return _DataBlob(len(value), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte))), buffer
+
+
+def _windows_crypto_libraries() -> tuple[ctypes.WinDLL, ctypes.WinDLL]:
+    crypt32 = ctypes.WinDLL("Crypt32.dll", use_last_error=True)
+    kernel32 = ctypes.WinDLL("Kernel32.dll", use_last_error=True)
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+    return crypt32, kernel32
 
 
 def protect_for_current_windows_user(value: str) -> str:
@@ -128,7 +136,8 @@ def protect_for_current_windows_user(value: str) -> str:
         raise RuntimeError("GitHub 登录凭据只能在 Windows 版软件中保存。")
     source, source_buffer = _data_blob(value.encode("utf-8"))
     result = _DataBlob()
-    crypt_protect = ctypes.windll.crypt32.CryptProtectData
+    crypt32, kernel32 = _windows_crypto_libraries()
+    crypt_protect = crypt32.CryptProtectData
     crypt_protect.argtypes = [ctypes.POINTER(_DataBlob), ctypes.wintypes.LPCWSTR, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.wintypes.DWORD, ctypes.POINTER(_DataBlob)]
     crypt_protect.restype = ctypes.wintypes.BOOL
     if not crypt_protect(ctypes.byref(source), "Cloud Robotics Paper Mailer", None, None, None, 0, ctypes.byref(result)):
@@ -136,7 +145,7 @@ def protect_for_current_windows_user(value: str) -> str:
     try:
         return base64.b64encode(ctypes.string_at(result.pbData, result.cbData)).decode("ascii")
     finally:
-        ctypes.windll.kernel32.LocalFree(result.pbData)
+        kernel32.LocalFree(result.pbData)
 
 
 def unprotect_for_current_windows_user(value: str) -> str:
@@ -148,7 +157,8 @@ def unprotect_for_current_windows_user(value: str) -> str:
         raise RuntimeError("GitHub 登录凭据格式无效。") from exc
     source, source_buffer = _data_blob(protected)
     result = _DataBlob()
-    crypt_unprotect = ctypes.windll.crypt32.CryptUnprotectData
+    crypt32, kernel32 = _windows_crypto_libraries()
+    crypt_unprotect = crypt32.CryptUnprotectData
     crypt_unprotect.argtypes = [ctypes.POINTER(_DataBlob), ctypes.POINTER(ctypes.wintypes.LPWSTR), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.wintypes.DWORD, ctypes.POINTER(_DataBlob)]
     crypt_unprotect.restype = ctypes.wintypes.BOOL
     if not crypt_unprotect(ctypes.byref(source), None, None, None, None, 0, ctypes.byref(result)):
@@ -156,7 +166,7 @@ def unprotect_for_current_windows_user(value: str) -> str:
     try:
         return ctypes.string_at(result.pbData, result.cbData).decode("utf-8")
     finally:
-        ctypes.windll.kernel32.LocalFree(result.pbData)
+        kernel32.LocalFree(result.pbData)
 
 
 def load_topic_settings() -> dict[str, object]:
@@ -384,6 +394,7 @@ class PaperMailerApp:
         service_buttons.pack(anchor="w", pady=(16, 0))
         ttk.Button(service_buttons, text="打开 GitHub Actions", style="Soft.TButton", command=self.open_actions).pack(side="left")
         ttk.Button(service_buttons, text="打开 Zotero 网页库", style="Soft.TButton", command=lambda: webbrowser.open("https://www.zotero.org")).pack(side="left", padx=(9, 0))
+        ttk.Button(service_buttons, text="修复 Zotero 缺失 PDF", style="Soft.TButton", command=self.repair_zotero_pdfs).pack(side="left", padx=(9, 0))
         ttk.Button(service_buttons, text="打开项目文件夹", style="Soft.TButton", command=lambda: os.startfile(app_data_dir())).pack(side="left", padx=(9, 0))
         ttk.Button(service_buttons, text=f"检查更新 v{APP_VERSION}", style="Soft.TButton", command=lambda: self.check_for_updates(manual=True)).pack(side="left", padx=(9, 0))
 
@@ -1156,6 +1167,17 @@ class PaperMailerApp:
 
 on:
   workflow_dispatch:
+    inputs:
+      repair_zotero:
+        description: "Repair missing Zotero PDF files without sending email"
+        required: false
+        default: false
+        type: boolean
+      force_send:
+        description: "Send even if today's paper was already delivered"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "{minute} {utc_hour} * * *"
 
@@ -1183,8 +1205,11 @@ jobs:
           ZOTERO_API_KEY: ${{{{ secrets.ZOTERO_API_KEY }}}}
           ZOTERO_USER_ID: ${{{{ secrets.ZOTERO_USER_ID }}}}
           ZOTERO_COLLECTION_NAME: ${{{{ secrets.ZOTERO_COLLECTION_NAME }}}}
+          ZOTERO_REPAIR_MISSING_PDFS: ${{{{ inputs.repair_zotero || 'false' }}}}
+          FORCE_SEND: ${{{{ inputs.force_send || 'false' }}}}
         run: python scripts/send_daily_robotics_paper.py
       - name: Commit sent paper history
+        if: ${{{{ !inputs.repair_zotero }}}}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -1259,7 +1284,7 @@ jobs:
             self._github_put_file(token, ".github/workflows/daily-paper.yml", self._workflow_content(int(setup["hour"]), int(setup["minute"])), "Configure daily cloud schedule", branch=branch)
             for name, value in dict(setup["secrets"]).items():
                 self._github_set_secret(token, str(name), str(value))
-            self._trigger_cloud_worker(token, success_message=False)
+            self._trigger_cloud_worker(token, success_message=False, inputs={"force_send": True})
             self.events.put(("cloud_setup_success", self.repo_url()))
         except Exception as exc:
             self.events.put(("error", f"云端配置未完成：{exc}"))
@@ -1821,7 +1846,7 @@ jobs:
         token = self._load_github_token()
         if token:
             self.status.set("正在请求 GitHub 启动云端任务...")
-            threading.Thread(target=self._trigger_cloud_worker, args=(token,), daemon=True).start()
+            threading.Thread(target=self._trigger_cloud_worker, args=(token, True, {"force_send": True}), daemon=True).start()
         else:
             self._start_github_login("trigger")
         return
@@ -1846,14 +1871,36 @@ jobs:
                 return
             dialog.destroy()
             self.status.set("正在请求 GitHub 启动云端任务...")
-            threading.Thread(target=self._trigger_cloud_worker, args=(value,), daemon=True).start()
+            threading.Thread(target=self._trigger_cloud_worker, args=(value, True, {"force_send": True}), daemon=True).start()
 
         ttk.Button(frame, text="触发云端发送", style="Accent.TButton", command=submit).pack(anchor="e", pady=(16, 0))
         dialog.bind("<Return>", lambda _event: submit())
 
-    def _trigger_cloud_worker(self, token: str, success_message: bool = True) -> None:
+    def repair_zotero_pdfs(self) -> None:
+        if not self._show_popup(
+            APP_NAME,
+            "将扫描 Zotero 目标分类最近 50 篇文献，补传 MD5 为空的 PDF。不会发送邮件，也不会覆盖正常附件。是否继续？",
+            kind="question",
+            choices=True,
+        ):
+            return
+        token = self._load_github_token()
+        if not token:
+            self._show_popup(APP_NAME, "请先登录 GitHub，再启动云端 Zotero 修复。", kind="warning")
+            return
+        self.status.set("正在请求 GitHub 启动 Zotero PDF 修复任务...")
+        threading.Thread(
+            target=self._trigger_cloud_worker,
+            args=(token, True, {"repair_zotero": True}),
+            daemon=True,
+        ).start()
+
+    def _trigger_cloud_worker(self, token: str, success_message: bool = True, inputs: dict[str, object] | None = None) -> None:
         endpoint = self.repo_api_url() + f"/actions/workflows/{self.settings['workflow']}/dispatches"
-        data = json.dumps({"ref": "main"}).encode("utf-8")
+        payload: dict[str, object] = {"ref": "main"}
+        if inputs:
+            payload["inputs"] = inputs
+        data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(endpoint, data=data, method="POST", headers={
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
@@ -1946,7 +1993,7 @@ jobs:
                             threading.Thread(target=self._publish_topics_worker, args=(message,), daemon=True).start()
                         elif action == "trigger":
                             self.status.set("GitHub 已登录，正在请求启动云端任务...")
-                            threading.Thread(target=self._trigger_cloud_worker, args=(message,), daemon=True).start()
+                            threading.Thread(target=self._trigger_cloud_worker, args=(message, True, {"force_send": True}), daemon=True).start()
                         elif action == "profile":
                             self.status.set("GitHub 登录完成，正在读取账户信息...")
                             self._refresh_github_profile(open_dialog=True)
