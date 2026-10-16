@@ -2,6 +2,19 @@ name: Daily Robotics Paper Email
 
 on:
   workflow_dispatch:
+    inputs:
+      repair_zotero:
+        description: "Repair missing Zotero PDF files without sending email"
+        required: false
+        default: false
+        type: boolean
+      force_send:
+        description: "Send even if today's paper was already delivered"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 2 * * *"
 
 permissions:
   contents: write
@@ -31,9 +44,12 @@ jobs:
           ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
           ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
           ZOTERO_COLLECTION_NAME: ${{ secrets.ZOTERO_COLLECTION_NAME }}
+          ZOTERO_REPAIR_MISSING_PDFS: ${{ inputs.repair_zotero || 'false' }}
+          FORCE_SEND: ${{ inputs.force_send || 'false' }}
         run: python scripts/send_daily_robotics_paper.py
 
       - name: Commit sent paper history
+        if: ${{ !inputs.repair_zotero }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
