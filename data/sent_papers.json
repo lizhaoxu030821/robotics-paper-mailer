@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.25628v1",
+    "title": "Humanoid SRL: Augmenting Humanoids with Supernumerary Limbs for Coordinated Loco-Manipulation",
+    "published": "2026-10-19T01:08:24+00:00",
+    "sent_at": "2026-10-21T02:05:24.110376+00:00",
+    "score": 101
+  },
+  {
     "url": "https://arxiv.org/abs/2610.24847v1",
     "title": "DiPLO: Self-distilled Diffusion Planning for Loco-manipulation",
     "published": "2026-10-17T19:51:59+00:00",
