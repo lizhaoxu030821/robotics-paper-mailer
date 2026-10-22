@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.26584v1",
+    "title": "HAF-VLA: Hierarchical Action Flow Framework for Humanoid Vision-Language-Action Control",
+    "published": "2026-10-19T15:33:34+00:00",
+    "sent_at": "2026-10-22T02:01:43.606626+00:00",
+    "score": 95
+  },
+  {
     "url": "https://arxiv.org/abs/2610.25628v1",
     "title": "Humanoid SRL: Augmenting Humanoids with Supernumerary Limbs for Coordinated Loco-Manipulation",
     "published": "2026-10-19T01:08:24+00:00",
