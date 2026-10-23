@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.30540v1",
+    "title": "Motion Retargeting with Spatiotemporal Preferences for Humanoid Loco-Manipulation",
+    "published": "2026-10-21T23:54:17+00:00",
+    "sent_at": "2026-10-23T07:03:53.606000+00:00",
+    "score": 95
+  },
+  {
     "url": "https://arxiv.org/abs/2610.26584v1",
     "title": "HAF-VLA: Hierarchical Action Flow Framework for Humanoid Vision-Language-Action Control",
     "published": "2026-10-19T15:33:34+00:00",
