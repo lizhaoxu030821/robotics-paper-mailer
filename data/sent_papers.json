@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.36270v1",
+    "title": "Learning Multi-Phase Robot Loco-Manipulation via Phase-Conditioned Policy Optimization",
+    "published": "2026-10-26T20:44:05+00:00",
+    "sent_at": "2026-10-29T02:01:38.342224+00:00",
+    "score": 94
+  },
+  {
     "url": "https://arxiv.org/abs/2610.35862v1",
     "title": "Learning Force-Reactive Humanoid Loco-Manipulation",
     "published": "2026-10-26T17:59:11+00:00",
