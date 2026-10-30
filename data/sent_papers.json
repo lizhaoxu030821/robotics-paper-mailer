@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.35075v1",
+    "title": "Zero-HLM: Generalizable Humanoid Loco-Manipulation without Real Robot Data",
+    "published": "2026-10-26T09:20:31+00:00",
+    "sent_at": "2026-10-30T02:07:56.689573+00:00",
+    "score": 91
+  },
+  {
     "url": "https://arxiv.org/abs/2610.36270v1",
     "title": "Learning Multi-Phase Robot Loco-Manipulation via Phase-Conditioned Policy Optimization",
     "published": "2026-10-26T20:44:05+00:00",
