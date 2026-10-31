@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.40248v1",
+    "title": "LLM-guided Planar Loco-Manipulation for Quadruped Robots",
+    "published": "2026-10-29T15:19:50+00:00",
+    "sent_at": "2026-10-31T02:01:16.200495+00:00",
+    "score": 89
+  },
+  {
     "url": "https://arxiv.org/abs/2610.35075v1",
     "title": "Zero-HLM: Generalizable Humanoid Loco-Manipulation without Real Robot Data",
     "published": "2026-10-26T09:20:31+00:00",
