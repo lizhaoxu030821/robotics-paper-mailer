@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.30540v2",
+    "title": "Motion Retargeting with Spatiotemporal Preferences for Humanoid Loco-Manipulation",
+    "published": "2026-10-21T23:54:17+00:00",
+    "sent_at": "2026-11-01T02:01:18.247467+00:00",
+    "score": 86
+  },
+  {
     "url": "https://arxiv.org/abs/2610.40248v1",
     "title": "LLM-guided Planar Loco-Manipulation for Quadruped Robots",
     "published": "2026-10-29T15:19:50+00:00",
