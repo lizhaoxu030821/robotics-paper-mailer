@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2610.41892v1",
+    "title": "Online Learning of Heterogeneous Locomotion Dynamics under Reinforcement Learning Policies for Precise Loco-Manipulation",
+    "published": "2026-10-30T15:34:35+00:00",
+    "sent_at": "2026-11-03T02:06:38.537274+00:00",
+    "score": 102
+  },
+  {
     "url": "https://arxiv.org/abs/2610.40257v1",
     "title": "Learned Terminal Costs for Short-Horizon Model Predictive Control of Autonomous Trucks in Interactive Highway Traffic",
     "published": "2026-10-29T15:23:51+00:00",
