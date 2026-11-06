@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.06523v1",
+    "title": "H^2MARL: Hierarchical Heterogeneous Multi-agent Reinforcement Learning for Humanoid Robot Control",
+    "published": "2026-11-04T13:48:34+00:00",
+    "sent_at": "2026-11-06T02:02:06.452154+00:00",
+    "score": 97
+  },
+  {
     "url": "https://arxiv.org/abs/2611.01729v1",
     "title": "ODE Policy: Robot Learning via Action Dynamics, Not Actions",
     "published": "2026-11-01T09:25:12+00:00",
