@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.05754v1",
+    "title": "GRASP: Gradient-Guided Sampling for Contact-Rich Physics-Based Motion Retargeting",
+    "published": "2026-11-03T23:53:22+00:00",
+    "sent_at": "2026-11-07T02:01:42.473941+00:00",
+    "score": 91
+  },
+  {
     "url": "https://arxiv.org/abs/2611.06523v1",
     "title": "H^2MARL: Hierarchical Heterogeneous Multi-agent Reinforcement Learning for Humanoid Robot Control",
     "published": "2026-11-04T13:48:34+00:00",
