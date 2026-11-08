@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.07268v1",
+    "title": "CRISP: Constraint-Resolved Interactions between Subsystems for Predictive Whole-Body Cooperation",
+    "published": "2026-11-05T00:39:03+00:00",
+    "sent_at": "2026-11-08T02:01:27.512099+00:00",
+    "score": 89
+  },
+  {
     "url": "https://arxiv.org/abs/2611.05754v1",
     "title": "GRASP: Gradient-Guided Sampling for Contact-Rich Physics-Based Motion Retargeting",
     "published": "2026-11-03T23:53:22+00:00",
