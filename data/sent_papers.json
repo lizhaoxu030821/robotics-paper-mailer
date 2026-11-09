@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.02871v1",
+    "title": "ReGATE: Recurrent Gated Visual Fusion for Reactive Humanoid-Object Interaction",
+    "published": "2026-11-02T10:10:46+00:00",
+    "sent_at": "2026-11-09T02:01:56.499508+00:00",
+    "score": 86
+  },
+  {
     "url": "https://arxiv.org/abs/2611.07268v1",
     "title": "CRISP: Constraint-Resolved Interactions between Subsystems for Predictive Whole-Body Cooperation",
     "published": "2026-11-05T00:39:03+00:00",
