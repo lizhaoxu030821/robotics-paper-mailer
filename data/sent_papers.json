@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.13929v1",
+    "title": "ReACT: Reflection-Consistent Modulation and Cross-Load Consistency for Humanoid Velocity Tracking Under Asymmetric Loads",
+    "published": "2026-11-10T11:18:34+00:00",
+    "sent_at": "2026-11-12T02:09:28.091907+00:00",
+    "score": 108
+  },
+  {
     "url": "https://arxiv.org/abs/2611.11554v1",
     "title": "Kimodo-Policy: Learning Kinematic Action Models for Humanoid Loco-Manipulation",
     "published": "2026-11-08T18:55:10+00:00",
