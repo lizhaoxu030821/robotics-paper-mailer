@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.14186v1",
+    "title": "Koopman Model-Based Reinforcement Learning",
+    "published": "2026-11-10T15:08:33+00:00",
+    "sent_at": "2026-11-13T02:02:14.746468+00:00",
+    "score": 99
+  },
+  {
     "url": "https://arxiv.org/abs/2611.13929v1",
     "title": "ReACT: Reflection-Consistent Modulation and Cross-Load Consistency for Humanoid Velocity Tracking Under Asymmetric Loads",
     "published": "2026-11-10T11:18:34+00:00",
