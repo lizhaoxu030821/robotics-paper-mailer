@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.10994v1",
+    "title": "RoboMoCap: A Large-Scale Whole-Body Motion Capture Dataset with Egocentric Vision for Robot Learning",
+    "published": "2026-11-07T22:27:20+00:00",
+    "sent_at": "2026-11-16T09:05:18.639822+00:00",
+    "score": 89
+  },
+  {
     "url": "https://arxiv.org/abs/2611.17142v1",
     "title": "FORGE: Force-Aware Multi-Granularity Control for Efficient Humanoid Loco-Manipulation",
     "published": "2026-11-12T17:30:11+00:00",
