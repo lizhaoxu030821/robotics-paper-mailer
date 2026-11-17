@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.19100v1",
+    "title": "Leaning Over to Reach Far-Away Objects",
+    "published": "2026-11-14T02:22:43+00:00",
+    "sent_at": "2026-11-17T02:05:15.934825+00:00",
+    "score": 114
+  },
+  {
     "url": "https://arxiv.org/abs/2611.10994v1",
     "title": "RoboMoCap: A Large-Scale Whole-Body Motion Capture Dataset with Egocentric Vision for Robot Learning",
     "published": "2026-11-07T22:27:20+00:00",
