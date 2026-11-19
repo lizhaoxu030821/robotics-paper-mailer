@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.22713v1",
+    "title": "Body Schema Policy: Body as the Vision-Action Interface for Efficient Robot Loco-Manipulation",
+    "published": "2026-11-17T12:52:14+00:00",
+    "sent_at": "2026-11-19T02:09:33.729912+00:00",
+    "score": 100
+  },
+  {
     "url": "https://arxiv.org/abs/2611.18976v1",
     "title": "TMA: Sim-to-Real Forceful Humanoid Manipulation via Tactile-Driven Motor Adaptation",
     "published": "2026-11-13T22:13:04+00:00",
