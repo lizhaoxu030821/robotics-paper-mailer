@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.25251v1",
+    "title": "WEVO: World Model-Enabled VLA Optimization for Whole-Body Loco-Manipulation",
+    "published": "2026-11-18T22:36:08+00:00",
+    "sent_at": "2026-11-20T02:08:30.665685+00:00",
+    "score": 116
+  },
+  {
     "url": "https://arxiv.org/abs/2611.22713v1",
     "title": "Body Schema Policy: Body as the Vision-Action Interface for Efficient Robot Loco-Manipulation",
     "published": "2026-11-17T12:52:14+00:00",
