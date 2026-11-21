@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.26293v1",
+    "title": "LocoMuJoCo: A Comprehensive Imitation Learning Benchmark for Whole-Body Control",
+    "published": "2026-11-19T15:48:40+00:00",
+    "sent_at": "2026-11-21T02:13:48.447392+00:00",
+    "score": 91
+  },
+  {
     "url": "https://arxiv.org/abs/2611.25251v1",
     "title": "WEVO: World Model-Enabled VLA Optimization for Whole-Body Loco-Manipulation",
     "published": "2026-11-18T22:36:08+00:00",
