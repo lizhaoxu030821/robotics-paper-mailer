@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.23102v1",
+    "title": "CADENCE: Learning Acyclic Gaits for Model-Based Quadruped Locomotion",
+    "published": "2026-11-17T17:25:29+00:00",
+    "sent_at": "2026-11-22T02:01:54.376210+00:00",
+    "score": 90
+  },
+  {
     "url": "https://arxiv.org/abs/2611.26293v1",
     "title": "LocoMuJoCo: A Comprehensive Imitation Learning Benchmark for Whole-Body Control",
     "published": "2026-11-19T15:48:40+00:00",
