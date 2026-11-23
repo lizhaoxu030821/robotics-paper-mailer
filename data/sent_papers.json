@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.19196v1",
+    "title": "Ego2Sim2Humanoid: Agentic Real-to-Sim for Learning Loco-Manipulation VLAs without Robot Demonstrations",
+    "published": "2026-11-14T06:32:12+00:00",
+    "sent_at": "2026-11-23T02:07:59.539529+00:00",
+    "score": 88
+  },
+  {
     "url": "https://arxiv.org/abs/2611.23102v1",
     "title": "CADENCE: Learning Acyclic Gaits for Model-Based Quadruped Locomotion",
     "published": "2026-11-17T17:25:29+00:00",
