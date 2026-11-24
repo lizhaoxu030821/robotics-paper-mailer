@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.19616v1",
+    "title": "Towards Probabilistically Safe Reinforcement Learning: Theory and Deployment on Humanoid and Aerial Robots",
+    "published": "2026-11-14T20:57:41+00:00",
+    "sent_at": "2026-11-24T02:01:49.950906+00:00",
+    "score": 83
+  },
+  {
     "url": "https://arxiv.org/abs/2611.19196v1",
     "title": "Ego2Sim2Humanoid: Agentic Real-to-Sim for Learning Loco-Manipulation VLAs without Robot Demonstrations",
     "published": "2026-11-14T06:32:12+00:00",
