@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.30449v1",
+    "title": "CHAMP: Coordinated Humanoid Loco-Manipulation with Whole-Body Motion Priors",
+    "published": "2026-11-23T10:40:38+00:00",
+    "sent_at": "2026-11-25T02:02:03.325901+00:00",
+    "score": 104
+  },
+  {
     "url": "https://arxiv.org/abs/2611.19616v1",
     "title": "Towards Probabilistically Safe Reinforcement Learning: Theory and Deployment on Humanoid and Aerial Robots",
     "published": "2026-11-14T20:57:41+00:00",
