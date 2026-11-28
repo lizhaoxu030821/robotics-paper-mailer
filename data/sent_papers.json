@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://arxiv.org/abs/2611.26293v2",
+    "title": "LocoMuJoCo: A Comprehensive Imitation Learning Benchmark for Whole-Body Control",
+    "published": "2026-11-19T15:48:40+00:00",
+    "sent_at": "2026-11-28T02:01:16.986989+00:00",
+    "score": 84
+  },
+  {
     "url": "https://arxiv.org/abs/2611.32642v1",
     "title": "BARE: Body-Aware Reflexive Evasion for Humanoid Robots",
     "published": "2026-11-24T14:01:29+00:00",
